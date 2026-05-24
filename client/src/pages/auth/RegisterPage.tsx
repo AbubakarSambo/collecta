@@ -173,7 +173,7 @@ export function RegisterPage() {
                   <Label htmlFor="networkSlug">Network Slug</Label>
                   <div className="flex items-center gap-0.5">
                     <span className="flex h-10 items-center rounded-l-md border border-r-0 bg-gray-50 px-3 text-sm text-gray-500">
-                      collecta.africa/n/
+                      collecta.services/n/
                     </span>
                     <Input
                       id="networkSlug"
@@ -184,7 +184,7 @@ export function RegisterPage() {
                     />
                   </div>
                   <p className="text-xs text-gray-500">
-                    Your members will pay at: collecta.africa/n/<strong>{form2.watch('networkSlug') || 'yourslug'}</strong>
+                    Your members will pay at: collecta.services/n/<strong>{form2.watch('networkSlug') || 'yourslug'}</strong>
                   </p>
                 </div>
 

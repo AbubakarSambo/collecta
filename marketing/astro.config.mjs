@@ -3,7 +3,7 @@ import sitemap from '@astrojs/sitemap'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  site: 'https://collecta.africa',
+  site: 'https://collecta.services',
   integrations: [sitemap()],
   vite: {
     plugins: [tailwindcss()],

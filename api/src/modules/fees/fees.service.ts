@@ -116,7 +116,7 @@ export class FeesService {
       throw new NotFoundException('Fee not found');
     }
 
-    const frontendUrl = this.configService.get<string>('app.frontendUrl') || 'https://collecta.africa';
+    const frontendUrl = this.configService.get<string>('app.frontendUrl') || 'https://collecta.services';
     const results = { assigned: 0, skipped: 0 };
 
     for (const memberId of dto.memberIds) {

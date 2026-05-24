@@ -16,7 +16,7 @@ export class RemindersService {
   ) {}
 
   private get frontendUrl() {
-    return this.configService.get<string>('app.frontendUrl') || 'https://collecta.africa';
+    return this.configService.get<string>('app.frontendUrl') || 'https://collecta.services';
   }
 
   async blastReminders(networkId: string, dto: BlastReminderDto) {
