@@ -1,0 +1,247 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                      String                   @id @default(uuid())
+  email                   String                   @unique
+  password                String?
+  firstName               String
+  lastName                String
+  role                    UserRole                 @default(NETWORK_ADMIN)
+  isPlatformAdmin         Boolean                  @default(false)
+  isEmailVerified         Boolean                  @default(false)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  emailVerificationTokens EmailVerificationToken[]
+  network                 Network?
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  token     String    @unique @default(uuid())
+  type      String
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Network {
+  id                     String     @id @default(uuid())
+  name                   String
+  slug                   String     @unique
+  description            String?
+  logoUrl                String?
+  adminId                String     @unique
+  paystackSubaccountCode String?
+  paystackSubaccountId   String?
+  bankAccountNumber      String?
+  bankAccountName        String?
+  bankCode               String?
+  settlementBank         String?
+  currency               String     @default("NGN")
+  country                String     @default("NG")
+  timezone               String     @default("Africa/Lagos")
+  isActive               Boolean    @default(true)
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+  auditLogs              AuditLog[]
+  charges                Charge[]
+  fees                   Fee[]
+  members                Member[]
+  admin                  User       @relation(fields: [adminId], references: [id])
+  payments               Payment[]
+  reminders              Reminder[]
+}
+
+model Member {
+  id          String          @id @default(uuid())
+  networkId   String
+  firstName   String
+  lastName    String
+  email       String?
+  phone       String?
+  memberCode  String?
+  unit        String?
+  status      MemberStatus    @default(ACTIVE)
+  isGuest      Boolean         @default(false)
+  inviteToken  String?         @unique
+  otpHash      String?
+  otpExpiresAt DateTime?
+  joinedAt    DateTime        @default(now())
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  charges     Charge[]
+  assignments FeeAssignment[]
+  network     Network         @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  payments    Payment[]
+  reminders   Reminder[]
+
+  @@unique([networkId, email])
+}
+
+model Fee {
+  id               String          @id @default(uuid())
+  networkId        String
+  name             String
+  description      String?
+  type             FeeType
+  amount           Decimal         @default(0) @db.Decimal(12, 2)
+  frequency        FeeFrequency    @default(MONTHLY)
+  dueDay           Int             @default(1)
+  penaltyEnabled   Boolean         @default(false)
+  penaltyPercent   Decimal         @default(0) @db.Decimal(5, 2)
+  penaltyGraceDays Int             @default(7)
+  options          Json?
+  isActive         Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  charges          Charge[]
+  network          Network         @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  assignments      FeeAssignment[]
+}
+
+model FeeAssignment {
+  id        String    @id @default(uuid())
+  feeId     String
+  memberId  String
+  amount    Decimal?  @db.Decimal(12, 2)
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  charges   Charge[]
+  fee       Fee       @relation(fields: [feeId], references: [id], onDelete: Cascade)
+  member    Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([feeId, memberId])
+}
+
+model Charge {
+  id                  String         @id @default(uuid())
+  networkId           String
+  memberId            String
+  feeId               String?
+  assignmentId        String?
+  amount              Decimal        @db.Decimal(12, 2)
+  paidAmount          Decimal        @default(0) @db.Decimal(12, 2)
+  dueDate             DateTime
+  status              ChargeStatus   @default(PENDING)
+  penaltyApplied      Boolean        @default(false)
+  penaltyAmount       Decimal        @default(0) @db.Decimal(12, 2)
+  paystackPaymentLink String?
+  paystackReference   String?
+  description         String?
+  paidAt              DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  assignment          FeeAssignment? @relation(fields: [assignmentId], references: [id])
+  fee                 Fee?           @relation(fields: [feeId], references: [id])
+  member              Member         @relation(fields: [memberId], references: [id])
+  network             Network        @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  payments            Payment[]
+  reminders           Reminder[]
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  networkId         String
+  chargeId          String
+  memberId          String
+  amount            Decimal       @db.Decimal(12, 2)
+  method            PaymentMethod @default(PAYSTACK)
+  paystackReference String?
+  metadata          Json?
+  recordedById      String?
+  createdAt         DateTime      @default(now())
+  charge            Charge        @relation(fields: [chargeId], references: [id])
+  member            Member        @relation(fields: [memberId], references: [id])
+  network           Network       @relation(fields: [networkId], references: [id])
+}
+
+model Reminder {
+  id        String          @id @default(uuid())
+  networkId String
+  memberId  String
+  chargeId  String?
+  channel   ReminderChannel
+  status    ReminderStatus  @default(PENDING)
+  message   String?
+  sentAt    DateTime?
+  createdAt DateTime        @default(now())
+  charge    Charge?         @relation(fields: [chargeId], references: [id])
+  member    Member          @relation(fields: [memberId], references: [id])
+  network   Network         @relation(fields: [networkId], references: [id])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  networkId  String
+  actorId    String?
+  action     String
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  network    Network  @relation(fields: [networkId], references: [id])
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  NETWORK_ADMIN
+}
+
+enum MemberStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum FeeType {
+  ASSIGNED
+  OPEN
+}
+
+enum FeeFrequency {
+  ONE_TIME
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum ChargeStatus {
+  PENDING
+  PAID
+  OVERDUE
+  PARTIALLY_PAID
+  WAIVED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  PAYSTACK
+  CASH
+  BANK_TRANSFER
+  OTHER
+}
+
+enum ReminderChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  FAILED
+}

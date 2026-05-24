@@ -1,0 +1,30 @@
+---
+interface Props {
+  title: string
+  description?: string
+}
+
+const { title, description = 'The smartest way to collect fees in your community. Estate managers, coop admins, gym owners — collect dues from members without the chaos.' } = Astro.props
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title} | Collecta</title>
+  </head>
+  <body class="bg-white text-gray-900 antialiased">
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  @import "tailwindcss";
+
+  :root {
+    --green: #16a34a;
+  }
+</style>

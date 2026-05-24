@@ -1,0 +1,28 @@
+import apiClient from './client'
+
+export const portalApi = {
+  getNetwork: (slug: string) =>
+    apiClient.get(`/portal/${slug}`).then((r) => r.data),
+
+  getMemberProfile: (slug: string, memberId: string) =>
+    apiClient.get(`/portal/${slug}/member/${memberId}/profile`).then((r) => r.data),
+
+  getCharge: (slug: string, chargeId: string) =>
+    apiClient.get(`/portal/${slug}/charge/${chargeId}`).then((r) => r.data),
+
+  initiatePayment: (slug: string, chargeId: string, amount?: number) =>
+    apiClient.post(`/portal/${slug}/pay/${chargeId}`, amount ? { amount } : {}).then((r) => r.data),
+
+  getMemberByInvite: (slug: string, token: string) =>
+    apiClient.get(`/portal/${slug}/join/${token}`).then((r) => r.data),
+
+  getMemberByEmail: (slug: string, email: string) =>
+    apiClient.get(`/portal/${slug}/member-by-email?email=${encodeURIComponent(email)}`).then((r) => r.data),
+
+  payOpenFee: (
+    slug: string,
+    feeId: string,
+    payer: { firstName: string; lastName: string; email: string; amount?: number },
+  ) =>
+    apiClient.post(`/portal/${slug}/open-fee/${feeId}/pay`, payer).then((r) => r.data),
+}
