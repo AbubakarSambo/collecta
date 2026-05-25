@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaystackService } from '../paystack/paystack.service';
+import { EmailService } from '../email/email.service';
 import { UpdateNetworkDto } from './dto/update-network.dto';
 import { SubmitVerificationDto } from './dto/submit-verification.dto';
 import {
@@ -22,6 +23,7 @@ export class NetworksService {
   constructor(
     private prisma: PrismaService,
     private paystack: PaystackService,
+    private emailService: EmailService,
   ) {}
 
   async findByAdmin(adminId: string) {
@@ -132,39 +134,75 @@ export class NetworksService {
 
     if (!network) throw new NotFoundException('Network not found');
 
-    const notesPayload = JSON.stringify({
-      organisationName: dto.organisationName,
-      cacNumber: dto.cacNumber ?? null,
-      contactAddress: dto.contactAddress,
-      networkContext: dto.networkContext,
-      submittedAt: new Date().toISOString(),
+    // Upsert VerificationRequest with submitted details
+    await this.prisma.verificationRequest.upsert({
+      where: { networkId: network.id },
+      create: {
+        networkId: network.id,
+        organisationName: dto.organisationName,
+        cacNumber: dto.cacNumber,
+        bvn: dto.bvn,
+        nin: dto.nin,
+        contactAddress: dto.contactAddress,
+        status: 'PENDING',
+      },
+      update: {
+        organisationName: dto.organisationName,
+        cacNumber: dto.cacNumber,
+        bvn: dto.bvn,
+        nin: dto.nin,
+        contactAddress: dto.contactAddress,
+        status: 'PENDING',
+        rejectionReason: null,
+      },
     });
 
     return this.prisma.network.update({
       where: { id: network.id },
-      data: {
-        verificationStatus: 'PENDING',
-        verificationNotes: notesPayload,
-      },
+      data: { verificationStatus: 'PENDING' },
     });
   }
 
   async approveVerification(networkId: string) {
-    const network = await this.prisma.network.findUnique({ where: { id: networkId } });
+    const network = await this.prisma.network.findUnique({
+      where: { id: networkId },
+      include: { admin: { select: { email: true, firstName: true } } },
+    });
 
     if (!network) throw new NotFoundException('Network not found');
 
-    // Grant 50 starter credits only when bank account is already connected
     const grantCredits = !!network.paystackSubaccountCode;
 
-    return this.prisma.network.update({
-      where: { id: networkId },
-      data: {
-        isVerified: true,
-        verificationStatus: 'APPROVED',
-        ...(grantCredits ? { smsCredits: { increment: STARTER_SMS_CREDITS } } : {}),
-      },
-    });
+    const [updatedNetwork] = await Promise.all([
+      this.prisma.network.update({
+        where: { id: networkId },
+        data: {
+          isVerified: true,
+          verificationStatus: 'APPROVED',
+          ...(grantCredits ? { smsCredits: { increment: STARTER_SMS_CREDITS } } : {}),
+        },
+      }),
+      this.prisma.verificationRequest.updateMany({
+        where: { networkId },
+        data: { status: 'APPROVED' },
+      }),
+    ]);
+
+    // Send onboarding templates email to admin
+    if (network.admin?.email) {
+      const portalUrl = `${process.env.FRONTEND_URL || 'https://collecta.africa'}/n/${network.slug}`;
+      this.emailService
+        .sendOnboardingTemplates(
+          network.admin.email,
+          network.admin.firstName,
+          network.name,
+          network.networkType,
+          portalUrl,
+        )
+        .catch(() => {});
+    }
+
+    return updatedNetwork;
   }
 
   async rejectVerification(networkId: string, reason: string) {
@@ -172,13 +210,18 @@ export class NetworksService {
 
     if (!network) throw new NotFoundException('Network not found');
 
-    return this.prisma.network.update({
-      where: { id: networkId },
-      data: {
-        verificationStatus: 'REJECTED',
-        verificationNotes: reason,
-      },
-    });
+    const [updatedNetwork] = await Promise.all([
+      this.prisma.network.update({
+        where: { id: networkId },
+        data: { verificationStatus: 'REJECTED', verificationNotes: reason },
+      }),
+      this.prisma.verificationRequest.updateMany({
+        where: { networkId },
+        data: { status: 'REJECTED', rejectionReason: reason },
+      }),
+    ]);
+
+    return updatedNetwork;
   }
 
   async getSmsCredits(adminId: string): Promise<{ credits: number }> {

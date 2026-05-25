@@ -26,6 +26,16 @@ export class PortalController {
     return this.portalService.findMemberByEmail(slug, email);
   }
 
+  @Get(':slug/payment-history')
+  @ApiOperation({ summary: 'Get full payment history for a member by email (public)' })
+  async getPaymentHistoryByEmail(
+    @Param('slug') slug: string,
+    @Query('email') email: string,
+  ) {
+    if (!email) throw new BadRequestException('email query param is required');
+    return this.portalService.getMemberPaymentHistoryByEmail(slug, email);
+  }
+
   @Post(':slug/open-fee/:feeId/pay')
   @ApiOperation({ summary: 'Pay an open fee (no member ID required)' })
   async payOpenFee(
@@ -77,5 +87,14 @@ export class PortalController {
     @Param('token') token: string,
   ) {
     return this.portalService.findMemberByToken(slug, token);
+  }
+
+  @Post(':slug/member/:memberId/sms-opt-out')
+  @ApiOperation({ summary: 'Opt a member out of SMS reminders (public, no auth required)' })
+  async smsOptOut(
+    @Param('slug') slug: string,
+    @Param('memberId') memberId: string,
+  ) {
+    return this.portalService.smsOptOut(slug, memberId);
   }
 }

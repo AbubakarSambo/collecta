@@ -24,7 +24,9 @@ export class RemindersService {
   private getTone(daysOverdue: number, paymentType: string): string {
     if (paymentType === 'OPEN') return daysOverdue <= 0 ? 'FRIENDLY' : 'CLEAR';
     if (paymentType === 'WINDOWED') {
-      if (daysOverdue < 5) return daysOverdue <= 0 ? 'FRIENDLY' : 'FIRM';
+      // Soft reminders throughout the window; escalate only after window closes
+      if (daysOverdue <= 0) return 'FRIENDLY';
+      if (daysOverdue < 5) return 'CLEAR';
       return 'FORMAL';
     }
     // SCHEDULED (default)
@@ -266,7 +268,7 @@ export class RemindersService {
         tone === 'FRIENDLY' ? (socialProofMsg ?? (streakMsg ?? undefined)) : undefined;
 
       const channels: string[] = ['EMAIL'];
-      if (member.phone) channels.push('SMS');
+      if (member.phone && !member.smsOptedOut) channels.push('SMS');
 
       for (const channel of channels) {
         // Deduplicate: skip if already sent today for this assignment+channel
@@ -351,6 +353,32 @@ export class RemindersService {
 
   // ─── Manual blast (existing, preserved) ──────────────────────────────────────
 
+  async estimateBlast(networkId: string, channels: string[]) {
+    const network = await this.prisma.network.findUnique({
+      where: { id: networkId },
+      select: { smsCredits: true },
+    });
+
+    if (!network) {
+      throw new NotFoundException('Network not found');
+    }
+
+    const recipientCount = await this.prisma.charge.count({
+      where: {
+        networkId,
+        status: { in: ['PENDING', 'OVERDUE', 'PARTIALLY_PAID'] },
+        member: { isNot: null },
+      },
+    });
+
+    const needsSms = channels.includes('SMS');
+    const creditsRequired = needsSms ? recipientCount : 0;
+    const creditsAvailable = network.smsCredits;
+    const canAfford = !needsSms || creditsAvailable >= creditsRequired;
+
+    return { recipientCount, creditsRequired, creditsAvailable, canAfford };
+  }
+
   async blastReminders(networkId: string, dto: BlastReminderDto) {
     const network = await this.prisma.network.findUnique({
       where: { id: networkId },
@@ -358,6 +386,26 @@ export class RemindersService {
 
     if (!network) {
       throw new NotFoundException('Network not found');
+    }
+
+    // Pre-check SMS credits before starting
+    if (dto.channels.includes('SMS')) {
+      const recipientCount = await this.prisma.charge.count({
+        where: {
+          networkId,
+          status: { in: ['PENDING', 'OVERDUE', 'PARTIALLY_PAID'] },
+          member: { isNot: null },
+        },
+      });
+
+      if (network.smsCredits < recipientCount) {
+        return {
+          sent: 0,
+          failed: 0,
+          total: recipientCount,
+          reason: `Insufficient SMS credits. You need ${recipientCount} credits but have ${network.smsCredits}. Purchase more in Settings.`,
+        };
+      }
     }
 
     // Find all non-paid charges
@@ -379,6 +427,8 @@ export class RemindersService {
       if (!charge.member) continue;
 
       for (const channel of dto.channels) {
+        if (channel === 'SMS' && (charge.member as any).smsOptedOut) continue;
+
         try {
           await this.sendReminder(channel, charge, network, dto.message);
 

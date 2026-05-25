@@ -14,6 +14,17 @@ export class PortalService {
     private configService: ConfigService,
   ) {}
 
+  private getTierTag(consecutiveMonthsPaid: number): { tier: 'TOP' | 'SECOND' | null; label: string | null } {
+    if (consecutiveMonthsPaid >= 12) {
+      return { tier: 'TOP', label: 'Top Payer — 12+ consecutive months' };
+    }
+    if (consecutiveMonthsPaid >= 6) {
+      const gap = 12 - consecutiveMonthsPaid;
+      return { tier: 'SECOND', label: `${consecutiveMonthsPaid} consecutive months — ${gap} away from Top Payer` };
+    }
+    return { tier: null, label: null };
+  }
+
   async getNetworkPortal(slug: string) {
     const network = await this.prisma.network.findUnique({
       where: { slug: slug.toLowerCase() },
@@ -25,11 +36,20 @@ export class PortalService {
         logoUrl: true,
         currency: true,
         isActive: true,
+        isVerified: true,
+        verificationStatus: true,
       },
     });
 
     if (!network || !network.isActive) {
       throw new NotFoundException('Network not found or inactive');
+    }
+
+    if (network.verificationStatus !== 'APPROVED') {
+      return {
+        comingSoon: true,
+        network: { name: network.name, logoUrl: network.logoUrl },
+      };
     }
 
     // Get open fees
@@ -44,7 +64,19 @@ export class PortalService {
       },
     });
 
-    return { network, openFees };
+    return {
+      comingSoon: false,
+      network: {
+        id: network.id,
+        name: network.name,
+        slug: network.slug,
+        description: network.description,
+        logoUrl: network.logoUrl,
+        currency: network.currency,
+        isVerified: network.isVerified,
+      },
+      openFees,
+    };
   }
 
   async getMemberProfile(slug: string, memberId: string) {
@@ -103,6 +135,8 @@ export class PortalService {
           ? 'You have 1 overdue charge. Pay now to stay in good standing.'
           : `You have ${chargesOverdue} overdue charges. Please settle them to avoid penalties.`;
 
+    const tierTag = this.getTierTag(member.consecutiveMonthsPaid);
+
     return {
       member: {
         id: member.id,
@@ -111,6 +145,7 @@ export class PortalService {
         unit: member.unit,
         memberCode: member.memberCode,
         joinedAt: member.joinedAt,
+        consecutiveMonthsPaid: member.consecutiveMonthsPaid,
       },
       charges: member.charges,
       summary: {
@@ -125,12 +160,14 @@ export class PortalService {
         membersCurrentWithPayments,
       },
       motivationalMessage,
+      tierTag,
     };
   }
 
   async getCharge(slug: string, chargeId: string) {
     const network = await this.prisma.network.findUnique({
       where: { slug: slug.toLowerCase() },
+      select: { id: true, name: true, isVerified: true },
     });
 
     if (!network) {
@@ -139,7 +176,10 @@ export class PortalService {
 
     const charge = await this.prisma.charge.findFirst({
       where: { id: chargeId, networkId: network.id },
-      include: { fee: { select: { name: true } } },
+      include: {
+        fee: { select: { name: true } },
+        member: { select: { firstName: true, lastName: true } },
+      },
     });
 
     if (!charge) {
@@ -154,6 +194,10 @@ export class PortalService {
       remainingAmount: Number(charge.amount) - Number(charge.paidAmount),
       status: charge.status,
       dueDate: charge.dueDate,
+      memberName: charge.member
+        ? `${charge.member.firstName} ${charge.member.lastName}`
+        : null,
+      network: { name: network.name, isVerified: network.isVerified },
     };
   }
 
@@ -319,11 +363,18 @@ export class PortalService {
     // Check if already recorded (idempotent)
     const existing = await this.prisma.payment.findFirst({
       where: { paystackReference: reference },
-      include: { charge: { include: { fee: true } } },
+      include: {
+        charge: { include: { fee: true } },
+        member: { select: { consecutiveMonthsPaid: true } },
+      },
     });
 
     if (existing) {
-      return { status: existing.charge.status, alreadyRecorded: true };
+      return {
+        status: existing.charge.status,
+        alreadyRecorded: true,
+        tierTag: this.getTierTag(existing.member?.consecutiveMonthsPaid ?? 0),
+      };
     }
 
     // Verify with Paystack
@@ -393,7 +444,87 @@ export class PortalService {
         .catch(() => {});
     }
 
-    return { status: 'success' };
+    const updatedMember = await this.prisma.member.findUnique({
+      where: { id: charge.memberId },
+      select: { consecutiveMonthsPaid: true },
+    });
+
+    return {
+      status: 'success',
+      tierTag: this.getTierTag(updatedMember?.consecutiveMonthsPaid ?? 0),
+    };
+  }
+
+  async getMemberPaymentHistoryByEmail(slug: string, email: string) {
+    const network = await this.prisma.network.findUnique({
+      where: { slug: slug.toLowerCase() },
+      select: { id: true, name: true },
+    });
+
+    if (!network) {
+      throw new NotFoundException('Network not found');
+    }
+
+    const member = await this.prisma.member.findFirst({
+      where: { networkId: network.id, email: email.toLowerCase() },
+      select: { id: true, firstName: true, lastName: true, consecutiveMonthsPaid: true },
+    });
+
+    if (!member) {
+      throw new NotFoundException('No account found for that email address');
+    }
+
+    const [confirmedPayments, outstandingCharges] = await Promise.all([
+      this.prisma.payment.findMany({
+        where: { memberId: member.id, networkId: network.id },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          charge: {
+            select: { id: true, description: true, fee: { select: { name: true } } },
+          },
+        },
+      }),
+      this.prisma.charge.findMany({
+        where: {
+          memberId: member.id,
+          networkId: network.id,
+          status: { in: ['PENDING', 'OVERDUE', 'PARTIALLY_PAID'] },
+        },
+        orderBy: { dueDate: 'asc' },
+        select: {
+          id: true,
+          amount: true,
+          paidAmount: true,
+          dueDate: true,
+          status: true,
+          description: true,
+          fee: { select: { name: true } },
+        },
+      }),
+    ]);
+
+    return {
+      member: { firstName: member.firstName, lastName: member.lastName },
+      networkName: network.name,
+      confirmedPayments: confirmedPayments.map((p) => ({
+        id: p.id,
+        amount: Number(p.amount),
+        method: p.method,
+        reference: p.paystackReference,
+        feeName: p.charge?.fee?.name || p.charge?.description || 'Payment',
+        paidAt: p.createdAt,
+      })),
+      outstandingCharges: outstandingCharges.map((c) => ({
+        id: c.id,
+        feeName: c.fee?.name || c.description || 'Charge',
+        amount: Number(c.amount),
+        paidAmount: Number(c.paidAmount),
+        remainingAmount: Number(c.amount) - Number(c.paidAmount),
+        dueDate: c.dueDate,
+        status: c.status,
+      })),
+      tierTag: this.getTierTag(member.consecutiveMonthsPaid),
+    };
   }
 
   async findMemberByEmail(slug: string, email: string) {
@@ -456,5 +587,27 @@ export class PortalService {
         slug: network.slug,
       },
     };
+  }
+
+  async smsOptOut(slug: string, memberId: string) {
+    const network = await this.prisma.network.findUnique({
+      where: { slug: slug.toLowerCase() },
+      select: { id: true },
+    });
+
+    if (!network) throw new NotFoundException('Network not found');
+
+    const member = await this.prisma.member.findFirst({
+      where: { id: memberId, networkId: network.id },
+    });
+
+    if (!member) throw new NotFoundException('Member not found');
+
+    await this.prisma.member.update({
+      where: { id: memberId },
+      data: { smsOptedOut: true, smsOptedOutAt: new Date() },
+    });
+
+    return { message: 'You have been unsubscribed from SMS reminders.' };
   }
 }

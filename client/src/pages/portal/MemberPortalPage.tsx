@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { portalApi } from '@/api/portal'
 import { getMemberSession } from '@/hooks/useMemberSession'
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { formatCurrency } from '@/lib/utils'
 import { FullPageSpinner } from '@/components/ui/Spinner'
-import { Search, AlertCircle, User } from 'lucide-react'
+import { Search, AlertCircle, User, ShieldCheck, Clock } from 'lucide-react'
 
 interface PayerForm {
   firstName: string
@@ -204,12 +204,37 @@ export function MemberPortalPage() {
     )
   }
 
+  // Portal not yet live — network pending verification
+  if (data.comingSoon) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-yellow-100">
+          <Clock className="h-8 w-8 text-yellow-600" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900">{data.network.name}</h2>
+        <p className="text-gray-500 max-w-sm">
+          This network is setting up their payment portal. Check back soon.
+        </p>
+        <p className="text-xs text-gray-400">Powered by Collecta</p>
+      </div>
+    )
+  }
+
   const { network, openFees } = data
 
   return (
     <div className="space-y-8">
       <div className="text-center">
         <h2 className="text-2xl font-bold text-gray-900">Welcome to {network.name}</h2>
+        {network.isVerified && (
+          <Link
+            to="/about/verification"
+            className="inline-flex items-center gap-1 mt-1 text-xs text-green-700 hover:underline"
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Verified by Collecta
+          </Link>
+        )}
         {network.description && (
           <p className="mt-2 text-gray-500">{network.description}</p>
         )}
@@ -226,6 +251,13 @@ export function MemberPortalPage() {
           </div>
         </div>
       )}
+
+      {/* Payment history link */}
+      <div className="text-center">
+        <Link to={`/n/${slug}/history`} className="text-sm text-gray-400 hover:underline">
+          View my payment history by email
+        </Link>
+      </div>
 
       {/* Member access */}
       {existingSession ? (
@@ -289,6 +321,12 @@ export function MemberPortalPage() {
           </CardContent>
         </Card>
       )}
+      {/* Footer */}
+      <div className="pt-4 border-t flex justify-center gap-4 text-xs text-gray-400">
+        <Link to="/terms" className="hover:underline">Terms</Link>
+        <Link to="/privacy" className="hover:underline">Privacy</Link>
+        <span>Powered by Collecta</span>
+      </div>
     </div>
   )
 }

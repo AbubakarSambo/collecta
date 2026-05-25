@@ -25,4 +25,12 @@ export const portalApi = {
     payer: { firstName: string; lastName: string; email: string; amount?: number },
   ) =>
     apiClient.post(`/portal/${slug}/open-fee/${feeId}/pay`, payer).then((r) => r.data),
+
+  getPaymentHistoryByEmail: (slug: string, email: string) =>
+    apiClient
+      .get(`/portal/${slug}/payment-history?email=${encodeURIComponent(email)}`)
+      .then((r) => r.data),
+
+  smsOptOut: (slug: string, memberId: string) =>
+    apiClient.post(`/portal/${slug}/member/${memberId}/sms-opt-out`).then((r) => r.data),
 }

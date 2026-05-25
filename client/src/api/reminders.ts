@@ -4,6 +4,11 @@ export const remindersApi = {
   getHistory: (networkId: string) =>
     apiClient.get(`/networks/${networkId}/reminders/history`).then((r) => r.data),
 
+  blastEstimate: (networkId: string, channels: string[]) =>
+    apiClient
+      .get(`/networks/${networkId}/reminders/blast-estimate`, { params: { channels: channels.join(',') } })
+      .then((r) => r.data),
+
   blast: (networkId: string, data: { channels: string[]; message?: string }) =>
     apiClient.post(`/networks/${networkId}/reminders/blast`, data).then((r) => r.data),
 

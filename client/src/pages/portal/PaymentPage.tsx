@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ExternalLink, ArrowLeft } from 'lucide-react'
+import { ExternalLink, ArrowLeft, ShieldCheck } from 'lucide-react'
 import { portalApi } from '@/api/portal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { formatCurrency } from '@/lib/utils'
 import { FullPageSpinner } from '@/components/ui/Spinner'
+
+const LARGE_PAYMENT_THRESHOLD = 50000
 
 export function PaymentPage() {
   const { slug, chargeId } = useParams<{ slug: string; chargeId: string }>()
@@ -23,6 +25,7 @@ export function PaymentPage() {
 
   const [amountInput, setAmountInput] = useState('')
   const [amountError, setAmountError] = useState('')
+  const [confirmed, setConfirmed] = useState(false)
 
   useEffect(() => {
     if (data?.remainingAmount !== undefined) {
@@ -56,6 +59,13 @@ export function PaymentPage() {
       return
     }
     setAmountError('')
+
+    // Show confirmation screen for large payments before proceeding
+    if (amount >= LARGE_PAYMENT_THRESHOLD && !confirmed) {
+      setConfirmed(true)
+      return
+    }
+
     initiatePayment.mutate()
   }
 
@@ -69,7 +79,76 @@ export function PaymentPage() {
     )
   }
 
-  const isPartial = parseFloat(amountInput) < data.remainingAmount && parseFloat(amountInput) > 0
+  const payAmount = parseFloat(amountInput) || 0
+  const isPartial = payAmount < data.remainingAmount && payAmount > 0
+  const isLargePayment = payAmount >= LARGE_PAYMENT_THRESHOLD
+
+  // Pre-payment confirmation screen for large amounts
+  if (confirmed && isLargePayment) {
+    return (
+      <div className="max-w-md mx-auto space-y-4">
+        <button
+          onClick={() => setConfirmed(false)}
+          className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+        >
+          <ArrowLeft className="h-4 w-4" /> Edit amount
+        </button>
+
+        <Card className="border-2">
+          <CardHeader>
+            <CardTitle className="text-center">Confirm Your Payment</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="rounded-lg bg-gray-50 p-4 space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Organisation</span>
+                <span className="font-semibold flex items-center gap-1">
+                  {data.network?.name}
+                  {data.network?.isVerified && (
+                    <ShieldCheck className="h-3.5 w-3.5 text-green-600" title="Verified by Collecta" />
+                  )}
+                </span>
+              </div>
+              {data.memberName && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Member</span>
+                  <span className="font-medium">{data.memberName}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-gray-500">Fee</span>
+                <span className="font-medium">{data.feeName}</span>
+              </div>
+              <div className="flex justify-between border-t pt-2">
+                <span className="font-semibold">You are paying</span>
+                <span className="font-bold text-lg">{formatCurrency(payAmount)}</span>
+              </div>
+            </div>
+
+            {data.network?.isVerified && (
+              <p className="text-center text-xs text-green-700 flex items-center justify-center gap-1">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                This organisation is verified by Collecta
+              </p>
+            )}
+
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={() => initiatePayment.mutate()}
+              isLoading={initiatePayment.isPending}
+            >
+              <ExternalLink className="h-5 w-5" />
+              Confirm — Pay {formatCurrency(payAmount)}
+            </Button>
+            <p className="text-center text-xs text-gray-400">
+              You'll be redirected to Paystack's secure payment page.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-md mx-auto space-y-4">
@@ -114,7 +193,7 @@ export function PaymentPage() {
               max={data.remainingAmount}
               step="0.01"
               value={amountInput}
-              onChange={(e) => { setAmountInput(e.target.value); setAmountError('') }}
+              onChange={(e) => { setAmountInput(e.target.value); setAmountError(''); setConfirmed(false) }}
               disabled={initiatePayment.isPending}
             />
             {amountError && <p className="text-sm text-red-600">{amountError}</p>}
@@ -122,7 +201,7 @@ export function PaymentPage() {
               <p className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
                 This is a partial payment. The remaining{' '}
                 <strong>
-                  {formatCurrency(data.remainingAmount - parseFloat(amountInput))}
+                  {formatCurrency(data.remainingAmount - payAmount)}
                 </strong>{' '}
                 will still be outstanding after payment.
               </p>
@@ -138,9 +217,11 @@ export function PaymentPage() {
             <ExternalLink className="h-5 w-5" />
             {initiatePayment.isPending
               ? 'Redirecting...'
-              : isPartial
-                ? `Pay ${formatCurrency(parseFloat(amountInput) || 0)} now`
-                : `Pay ${formatCurrency(data.remainingAmount)} in full`}
+              : isLargePayment
+                ? `Review payment — ${formatCurrency(payAmount)}`
+                : isPartial
+                  ? `Pay ${formatCurrency(payAmount)} now`
+                  : `Pay ${formatCurrency(data.remainingAmount)} in full`}
           </Button>
 
           <p className="text-center text-xs text-gray-400">

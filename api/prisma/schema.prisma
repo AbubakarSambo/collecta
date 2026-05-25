@@ -68,6 +68,23 @@ model Network {
   payments               Payment[]
   reminders              Reminder[]
   reminderLogs           ReminderLog[]
+  verificationRequest    VerificationRequest?
+  importJobs             ImportJob[]
+}
+
+model VerificationRequest {
+  id              String             @id @default(uuid())
+  networkId       String             @unique
+  organisationName String
+  cacNumber       String?
+  bvn             String?
+  nin             String?
+  contactAddress  String?
+  status          VerificationStatus @default(PENDING)
+  rejectionReason String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  network         Network            @relation(fields: [networkId], references: [id], onDelete: Cascade)
 }
 
 model Member {
@@ -84,6 +101,8 @@ model Member {
   isBlacklisted         Boolean         @default(false)
   blacklistReason       String?
   consecutiveMonthsPaid Int             @default(0)
+  smsOptedOut           Boolean         @default(false)
+  smsOptedOutAt         DateTime?
   inviteToken           String?         @unique
   otpHash               String?
   otpExpiresAt          DateTime?
@@ -219,6 +238,21 @@ model ReminderLog {
   @@unique([assignmentId, sentDate, channel])
 }
 
+model ImportJob {
+  id            String          @id @default(uuid())
+  networkId     String
+  status        ImportJobStatus @default(QUEUED)
+  rawData       Json?
+  errors        Json            @default("[]")
+  totalRows     Int             @default(0)
+  processedRows Int             @default(0)
+  createdCount  Int             @default(0)
+  skippedCount  Int             @default(0)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  network       Network         @relation(fields: [networkId], references: [id], onDelete: Cascade)
+}
+
 model AuditLog {
   id         String   @id @default(uuid())
   networkId  String
@@ -309,4 +343,11 @@ enum ReminderTone {
   CLEAR
   FIRM
   FORMAL
+}
+
+enum ImportJobStatus {
+  QUEUED
+  PROCESSING
+  DONE
+  FAILED
 }

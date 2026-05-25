@@ -325,4 +325,51 @@ export class EmailService {
       `,
     });
   }
+
+  async sendOnboardingTemplates(
+    email: string,
+    firstName: string,
+    networkName: string,
+    networkType: string,
+    portalUrl: string,
+  ): Promise<void> {
+    const typeLabel: Record<string, string> = {
+      ESTATE: 'estate residents',
+      CHAMA: 'chama members',
+      SUPPLIER: 'clients',
+      DEBT: 'borrowers',
+    };
+
+    const noun = typeLabel[networkType] || 'members';
+
+    const whatsappTemplate = `Hi! ${networkName} now uses Collecta to manage payments. You can view your charges and pay online here: ${portalUrl}\n\nNo login needed — just visit the link. Your receipts are digital and permanent.`;
+    const smsTemplate = `${networkName}: Pay dues online at ${portalUrl}. View charges, pay securely, get instant receipt.`;
+
+    await this.sendEmail({
+      to: email,
+      subject: `Your Collecta portal is live — here's how to tell your ${noun}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
+          <h2 style="color: #16a34a;">Your portal is live, ${firstName}!</h2>
+          <p><strong>${networkName}</strong> has been verified. Your payment portal is now active at:</p>
+          <p style="background: #f3f4f6; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 14px;">${portalUrl}</p>
+
+          <h3>Share with your ${noun}</h3>
+          <p>Copy and send one of these messages — WhatsApp or SMS:</p>
+
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 12px 0;">
+            <p style="font-size: 11px; color: #6b7280; margin: 0 0 8px;">WhatsApp template</p>
+            <p style="margin: 0; white-space: pre-wrap; font-size: 14px;">${whatsappTemplate}</p>
+          </div>
+
+          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 12px 0;">
+            <p style="font-size: 11px; color: #6b7280; margin: 0 0 8px;">SMS template</p>
+            <p style="margin: 0; font-size: 14px;">${smsTemplate}</p>
+          </div>
+
+          <p style="color: #6b7280; font-size: 12px; margin-top: 24px;">Collecta — collecta.africa</p>
+        </div>
+      `,
+    });
+  }
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { RemindersService } from './reminders.service';
 import { BlastReminderDto } from './dto/blast-reminder.dto';
@@ -15,6 +15,16 @@ export class RemindersController {
   @ApiOperation({ summary: 'Get reminder history' })
   async getHistory(@Param('networkId') networkId: string) {
     return this.remindersService.getReminderHistory(networkId);
+  }
+
+  @Get('blast-estimate')
+  @ApiOperation({ summary: 'Estimate credit cost of a blast reminder before sending' })
+  async blastEstimate(
+    @Param('networkId') networkId: string,
+    @Query('channels') channels: string,
+  ) {
+    const channelList = channels ? channels.split(',') : ['EMAIL'];
+    return this.remindersService.estimateBlast(networkId, channelList);
   }
 
   @Post('blast')

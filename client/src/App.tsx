@@ -29,6 +29,14 @@ import { MemberProfilePage } from '@/pages/portal/MemberProfilePage'
 import { MemberLoginPage } from '@/pages/portal/MemberLoginPage'
 import { PaymentPage } from '@/pages/portal/PaymentPage'
 import { PaymentCallbackPage } from '@/pages/portal/PaymentCallbackPage'
+import { PaymentHistoryPage } from '@/pages/portal/PaymentHistoryPage'
+import { VerificationInfoPage } from '@/pages/portal/VerificationInfoPage'
+
+// Legal pages (public)
+import { TermsPage } from '@/pages/legal/TermsPage'
+import { PrivacyPage } from '@/pages/legal/PrivacyPage'
+import { DpaPage } from '@/pages/legal/DpaPage'
+import { AcceptableUsePage } from '@/pages/legal/AcceptableUsePage'
 
 function App() {
   return (
@@ -54,7 +62,17 @@ function App() {
           <Route path="login" element={<MemberLoginPage />} />
           <Route path="profile/:memberId" element={<MemberProfilePage />} />
           <Route path="pay/:chargeId" element={<PaymentPage />} />
+          <Route path="history" element={<PaymentHistoryPage />} />
         </Route>
+
+        {/* Public info pages */}
+        <Route path="/about/verification" element={<VerificationInfoPage />} />
+
+        {/* Legal pages */}
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/dpa" element={<DpaPage />} />
+        <Route path="/acceptable-use" element={<AcceptableUsePage />} />
 
         {/* Protected app routes */}
         <Route element={<ProtectedRoute />}>

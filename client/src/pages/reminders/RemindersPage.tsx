@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Send, Mail, MessageSquare, Phone } from 'lucide-react'
+import { Send, Mail, MessageSquare, Phone, AlertTriangle, Info } from 'lucide-react'
 import { remindersApi } from '@/api/reminders'
 import { useNetwork } from '@/hooks/useNetwork'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -31,11 +31,21 @@ export function RemindersPage() {
     select: (r) => r.data,
   })
 
+  const { data: estimate } = useQuery({
+    queryKey: ['reminders', 'estimate', networkId, selectedChannels],
+    queryFn: () => remindersApi.blastEstimate(networkId!, selectedChannels),
+    enabled: !!networkId && selectedChannels.length > 0,
+  })
+
   const blastMutation = useMutation({
     mutationFn: () => remindersApi.blast(networkId!, { channels: selectedChannels, message: message || undefined }),
     onSuccess: (res) => {
-      toast.success(`Sent ${res.data.sent} reminders, ${res.data.failed} failed`)
-      queryClient.invalidateQueries({ queryKey: ['reminders', 'history', networkId] })
+      if (res.reason) {
+        toast.warning(res.reason)
+      } else {
+        toast.success(`Sent ${res.sent} reminders${res.failed > 0 ? `, ${res.failed} failed` : ''}`)
+        queryClient.invalidateQueries({ queryKey: ['reminders', 'history', networkId] })
+      }
     },
     onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to send'),
   })
@@ -45,6 +55,8 @@ export function RemindersPage() {
       prev.includes(channel) ? prev.filter((c) => c !== channel) : [...prev, channel],
     )
   }
+
+  const canSend = selectedChannels.length > 0 && (estimate ? estimate.canAfford : true)
 
   return (
     <div className="p-6 space-y-6">
@@ -77,6 +89,32 @@ export function RemindersPage() {
               </div>
             </div>
 
+            {estimate && (
+              <div
+                className={cn(
+                  'rounded-md border px-3 py-2.5 text-sm flex items-start gap-2',
+                  estimate.canAfford
+                    ? 'border-blue-200 bg-blue-50 text-blue-800'
+                    : 'border-red-200 bg-red-50 text-red-800',
+                )}
+              >
+                {estimate.canAfford ? (
+                  <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                )}
+                <span>
+                  {estimate.recipientCount} recipient{estimate.recipientCount !== 1 ? 's' : ''}.
+                  {estimate.creditsRequired > 0 && (
+                    <> Uses <strong>{estimate.creditsRequired} SMS credits</strong> ({estimate.creditsAvailable} available).</>
+                  )}
+                  {!estimate.canAfford && (
+                    <> <a href="/settings" className="underline font-medium">Purchase more credits</a> to send SMS.</>
+                  )}
+                </span>
+              </div>
+            )}
+
             <div>
               <p className="text-sm font-medium text-gray-700 mb-2">Custom Message (optional)</p>
               <Textarea
@@ -91,7 +129,7 @@ export function RemindersPage() {
               className="w-full"
               onClick={() => blastMutation.mutate()}
               isLoading={blastMutation.isPending}
-              disabled={selectedChannels.length === 0}
+              disabled={!canSend || blastMutation.isPending}
             >
               <Send className="h-4 w-4" />
               Send to All Non-Payers

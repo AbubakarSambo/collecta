@@ -25,6 +25,9 @@ export const membersApi = {
   importCsv: (networkId: string, csvData: string) =>
     apiClient.post(`/networks/${networkId}/members/import`, { csvData }).then((r) => r.data),
 
+  getImportJobStatus: (networkId: string, jobId: string) =>
+    apiClient.get(`/networks/${networkId}/members/import/${jobId}`).then((r) => r.data),
+
   getInviteLink: (networkId: string, id: string) =>
     apiClient.post(`/networks/${networkId}/members/${id}/invite-link`).then((r) => r.data),
 }

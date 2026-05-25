@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { Users, TrendingUp, AlertTriangle, Clock, Send, UserPlus } from 'lucide-react'
+import { Users, TrendingUp, AlertTriangle, Clock, Send, UserPlus, PartyPopper, Copy, Check } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import { chargesApi } from '@/api/charges'
 import { paymentsApi } from '@/api/payments'
 import { reportsApi } from '@/api/reports'
@@ -22,9 +23,28 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 
+const ONBOARDING_DISMISSED_KEY = 'collecta-onboarding-dismissed'
+
 export function DashboardPage() {
   const navigate = useNavigate()
   const { network, networkId, isLoading: networkLoading } = useNetwork()
+  const [onboardingDismissed, setOnboardingDismissed] = useState(
+    () => !!localStorage.getItem(ONBOARDING_DISMISSED_KEY),
+  )
+  const [copied, setCopied] = useState(false)
+
+  const dismissOnboarding = () => {
+    localStorage.setItem(ONBOARDING_DISMISSED_KEY, '1')
+    setOnboardingDismissed(true)
+  }
+
+  const copyPortalLink = () => {
+    if (network?.slug) {
+      navigator.clipboard.writeText(`${window.location.origin}/n/${network.slug}`)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
 
   const { data: summaryRes, isLoading: summaryLoading } = useQuery({
     queryKey: ['charges', 'summary', networkId],
@@ -57,6 +77,42 @@ export function DashboardPage() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Onboarding banner — shown once after verification approval */}
+      {network?.verificationStatus === 'APPROVED' && network?.isVerified && !onboardingDismissed && (
+        <div className="rounded-lg border border-green-300 bg-green-50 px-4 py-4 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <PartyPopper className="h-5 w-5 text-green-700 shrink-0" />
+              <p className="text-sm font-semibold text-green-900">Your portal is live!</p>
+            </div>
+            <button
+              onClick={dismissOnboarding}
+              className="text-xs text-green-600 hover:underline shrink-0"
+            >
+              Dismiss
+            </button>
+          </div>
+          <p className="text-sm text-green-800">
+            Share your portal link with your members so they can view charges and pay online:
+          </p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 rounded bg-white border border-green-200 px-3 py-2 text-xs font-mono text-gray-700 truncate">
+              {window.location.origin}/n/{network?.slug}
+            </code>
+            <button
+              onClick={copyPortalLink}
+              className="flex items-center gap-1 rounded border border-green-300 bg-white px-3 py-2 text-xs font-medium text-green-700 hover:bg-green-50"
+            >
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+          <p className="text-xs text-green-700">
+            Check your email for copy-paste WhatsApp and SMS message templates.
+          </p>
+        </div>
+      )}
+
       {/* Verification banner */}
       {network?.verificationStatus === 'PENDING' && !network?.isVerified && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">

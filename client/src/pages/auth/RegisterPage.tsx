@@ -237,6 +237,11 @@ export function RegisterPage() {
                 Sign in
               </Link>
             </p>
+            <p className="mt-3 text-center text-xs text-gray-400">
+              By registering you agree to our{' '}
+              <Link to="/terms" className="underline">Terms</Link>{' '}and{' '}
+              <Link to="/privacy" className="underline">Privacy Policy</Link>
+            </p>
           </CardContent>
         </Card>
       </div>

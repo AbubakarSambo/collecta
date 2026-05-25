@@ -22,6 +22,15 @@ export const networksApi = {
 
   topUpSmsCredits: (bundle: number): Promise<{ credits: number }> =>
     apiClient.post('/networks/sms-credits/topup', { bundle }).then((r) => r.data.data ?? r.data),
+
+  submitVerification: (data: {
+    organisationName: string
+    cacNumber?: string
+    bvn?: string
+    nin?: string
+    contactAddress: string
+    networkContext?: string
+  }) => apiClient.post('/networks/verification/submit', data).then((r) => r.data),
 }
 
 export const paystackApi = {

@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { CheckCircle2, AlertCircle, Building2, MessageSquare } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Building2, MessageSquare, ShieldCheck, Clock, XCircle } from 'lucide-react'
 import { networksApi, paystackApi } from '@/api/networks'
 import { useNetwork } from '@/hooks/useNetwork'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -20,6 +20,7 @@ const TABS = [
   { id: 'network', label: 'Network Info' },
   { id: 'paystack', label: 'Paystack' },
   { id: 'sms', label: 'SMS Credits' },
+  { id: 'verification', label: 'Verification' },
 ]
 
 const SMS_BUNDLES = [
@@ -132,6 +133,25 @@ export function SettingsPage() {
     }
     setupMutation.mutate(data)
   }
+
+  const verificationForm = useForm({
+    defaultValues: {
+      organisationName: '',
+      cacNumber: '',
+      bvn: '',
+      nin: '',
+      contactAddress: '',
+    },
+  })
+
+  const verificationMutation = useMutation({
+    mutationFn: (data: any) => networksApi.submitVerification(data),
+    onSuccess: () => {
+      toast.success('Verification request submitted — our team will review within 24 hours')
+      queryClient.invalidateQueries({ queryKey: ['network', 'me'] })
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Submission failed'),
+  })
 
   return (
     <div className="p-6 space-y-6">
@@ -361,6 +381,102 @@ export function SettingsPage() {
                       Connect Account
                     </Button>
                   </div>
+                </form>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Verification tab */}
+      {activeTab === 'verification' && (
+        <div className="space-y-4">
+          {network?.verificationStatus === 'APPROVED' && (
+            <Card className="border-green-200 bg-green-50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <ShieldCheck className="h-6 w-6 text-green-600 shrink-0" />
+                <div>
+                  <p className="font-semibold text-green-900">Verified</p>
+                  <p className="text-sm text-green-700">Your organisation has been verified by Collecta. Your portal is live.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {network?.verificationStatus === 'PENDING' && (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <Clock className="h-6 w-6 text-amber-600 shrink-0" />
+                <div>
+                  <p className="font-semibold text-amber-900">Review in progress</p>
+                  <p className="text-sm text-amber-700">Your verification request has been submitted. Our team will review within 24 hours.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {network?.verificationStatus === 'REJECTED' && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <XCircle className="h-6 w-6 text-red-600 shrink-0" />
+                <div>
+                  <p className="font-semibold text-red-900">Verification rejected</p>
+                  <p className="text-sm text-red-700">
+                    {network?.verificationNotes || 'Please contact support@collecta.africa for details.'}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {network?.verificationStatus !== 'APPROVED' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Submit Verification Request</CardTitle>
+                <CardDescription>
+                  Collecta verifies organisations before activating their payment portal. Reviewed within 24 hours.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form
+                  onSubmit={verificationForm.handleSubmit((data) => verificationMutation.mutate(data))}
+                  className="space-y-4"
+                >
+                  <div className="space-y-1">
+                    <Label>Organisation name</Label>
+                    <Input
+                      {...verificationForm.register('organisationName', { required: true })}
+                      placeholder="Greenpark Estate Residents Association"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label>CAC number (optional)</Label>
+                      <Input {...verificationForm.register('cacNumber')} placeholder="RC1234567" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>BVN (individual collectors)</Label>
+                      <Input {...verificationForm.register('bvn')} placeholder="12345678901" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>NIN (optional)</Label>
+                    <Input {...verificationForm.register('nin')} placeholder="12345678901" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Contact address</Label>
+                    <Input
+                      {...verificationForm.register('contactAddress', { required: true })}
+                      placeholder="12 Main Street, Lagos"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    isLoading={verificationMutation.isPending}
+                    disabled={verificationMutation.isPending}
+                  >
+                    Submit for Review
+                  </Button>
                 </form>
               </CardContent>
             </Card>
