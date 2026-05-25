@@ -33,7 +33,16 @@ export function FeesPage() {
     select: (r) => r.data,
   })
 
-  const { register, handleSubmit, reset, watch } = useForm({
+  interface CreateFeeForm {
+    name: string
+    type: string
+    amount: number
+    frequency: string
+    dueDay: number
+    description?: string
+  }
+
+  const { register, handleSubmit, reset, watch } = useForm<CreateFeeForm>({
     defaultValues: { type: 'ASSIGNED', frequency: 'MONTHLY', dueDay: 1 },
   })
 
