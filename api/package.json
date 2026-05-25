@@ -8,7 +8,7 @@
     "npm": "10.x"
   },
   "scripts": {
-    "postinstall": "prisma generate && npm run build",
+    "postinstall": "prisma generate",
     "build": "nest build",
     "start": "nest start",
     "start:dev": "nest start --watch",
