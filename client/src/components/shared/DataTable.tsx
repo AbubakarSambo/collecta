@@ -23,7 +23,7 @@ interface DataTableProps<T> {
   keyExtractor?: (row: T) => string
 }
 
-export function DataTable<T extends Record<string, unknown>>({
+export function DataTable<T extends object>({
   columns,
   data,
   isLoading,
@@ -66,7 +66,7 @@ export function DataTable<T extends Record<string, unknown>>({
               <TableRow key={keyExtractor ? keyExtractor(row) : idx}>
                 {columns.map((col) => (
                   <TableCell key={col.key} className={col.className}>
-                    {col.render ? col.render(row) : String(row[col.key] ?? '')}
+                    {col.render ? col.render(row) : String((row as Record<string, unknown>)[col.key] ?? '')}
                   </TableCell>
                 ))}
               </TableRow>

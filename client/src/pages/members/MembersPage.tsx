@@ -166,7 +166,7 @@ export function MembersPage() {
             onPageChange: setPage,
           }}
           emptyMessage="No members yet. Add your first member to get started."
-          keyExtractor={(r) => r.id}
+          keyExtractor={(r) => (r as any).id}
         />
       </div>
 

@@ -75,7 +75,7 @@ export function PaymentsPage() {
             totalPages: data?.meta?.totalPages || 1,
             onPageChange: setPage,
           }}
-          keyExtractor={(r) => r.id}
+          keyExtractor={(r) => (r as any).id}
           emptyMessage="No payments recorded yet"
         />
       </div>

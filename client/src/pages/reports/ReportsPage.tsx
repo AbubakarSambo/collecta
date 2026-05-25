@@ -95,7 +95,7 @@ export function ReportsPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="month" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v: number) => formatCurrency(v)} />
+              <Tooltip formatter={(v) => formatCurrency(Number(v ?? 0))} />
               <Bar dataKey="collected" fill="#16a34a" name="Collected" radius={[3, 3, 0, 0]} />
               <Bar dataKey="outstanding" fill="#fbbf24" name="Outstanding" radius={[3, 3, 0, 0]} />
             </BarChart>
