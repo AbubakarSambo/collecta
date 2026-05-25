@@ -1,7 +1,21 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaystackService } from '../paystack/paystack.service';
 import { UpdateNetworkDto } from './dto/update-network.dto';
+import { SubmitVerificationDto } from './dto/submit-verification.dto';
+import {
+  calculateServiceCharge,
+  calculateTotalAmount,
+} from '../../common/utils/service-charge.util';
+
+const SMS_BUNDLES: Record<number, number> = {
+  100: 600,
+  500: 3000,
+  1000: 6000,
+  5000: 28500,
+};
+
+const STARTER_SMS_CREDITS = 50;
 
 @Injectable()
 export class NetworksService {
@@ -89,6 +103,10 @@ export class NetworksService {
         bankAccountNumber: accountNumber,
         bankAccountName: verification.account_name,
         settlementBank: bank?.name || null,
+        // Grant 50 starter SMS credits when bank is connected AND network is already verified
+        ...(network.isVerified
+          ? { smsCredits: { increment: STARTER_SMS_CREDITS } }
+          : {}),
       },
     });
 
@@ -96,6 +114,107 @@ export class NetworksService {
       subaccountCode: result.subaccount_code,
       accountName: verification.account_name,
       settlementBank: bank?.name || null,
+    };
+  }
+
+  getServiceChargeBreakdown(amountNaira: number): {
+    amount: number;
+    serviceCharge: number;
+    total: number;
+  } {
+    const serviceCharge = calculateServiceCharge(amountNaira);
+    const total = calculateTotalAmount(amountNaira);
+    return { amount: amountNaira, serviceCharge, total };
+  }
+
+  async submitVerification(adminId: string, dto: SubmitVerificationDto) {
+    const network = await this.prisma.network.findUnique({ where: { adminId } });
+
+    if (!network) throw new NotFoundException('Network not found');
+
+    const notesPayload = JSON.stringify({
+      organisationName: dto.organisationName,
+      cacNumber: dto.cacNumber ?? null,
+      contactAddress: dto.contactAddress,
+      networkContext: dto.networkContext,
+      submittedAt: new Date().toISOString(),
+    });
+
+    return this.prisma.network.update({
+      where: { id: network.id },
+      data: {
+        verificationStatus: 'PENDING',
+        verificationNotes: notesPayload,
+      },
+    });
+  }
+
+  async approveVerification(networkId: string) {
+    const network = await this.prisma.network.findUnique({ where: { id: networkId } });
+
+    if (!network) throw new NotFoundException('Network not found');
+
+    // Grant 50 starter credits only when bank account is already connected
+    const grantCredits = !!network.paystackSubaccountCode;
+
+    return this.prisma.network.update({
+      where: { id: networkId },
+      data: {
+        isVerified: true,
+        verificationStatus: 'APPROVED',
+        ...(grantCredits ? { smsCredits: { increment: STARTER_SMS_CREDITS } } : {}),
+      },
+    });
+  }
+
+  async rejectVerification(networkId: string, reason: string) {
+    const network = await this.prisma.network.findUnique({ where: { id: networkId } });
+
+    if (!network) throw new NotFoundException('Network not found');
+
+    return this.prisma.network.update({
+      where: { id: networkId },
+      data: {
+        verificationStatus: 'REJECTED',
+        verificationNotes: reason,
+      },
+    });
+  }
+
+  async getSmsCredits(adminId: string): Promise<{ credits: number }> {
+    const network = await this.prisma.network.findUnique({
+      where: { adminId },
+      select: { smsCredits: true },
+    });
+
+    if (!network) throw new NotFoundException('Network not found');
+
+    return { credits: network.smsCredits };
+  }
+
+  async topUpSmsCredits(adminId: string, bundle: number) {
+    const price = SMS_BUNDLES[bundle];
+
+    if (!price) {
+      throw new BadRequestException(
+        `Invalid bundle. Valid bundles are: ${Object.keys(SMS_BUNDLES).join(', ')}`,
+      );
+    }
+
+    const network = await this.prisma.network.findUnique({ where: { adminId } });
+
+    if (!network) throw new NotFoundException('Network not found');
+
+    const updated = await this.prisma.network.update({
+      where: { id: network.id },
+      data: { smsCredits: { increment: bundle } },
+      select: { smsCredits: true },
+    });
+
+    return {
+      credits: updated.smsCredits,
+      added: bundle,
+      price,
     };
   }
 

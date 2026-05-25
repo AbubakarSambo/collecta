@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent } from '@/components/ui/Card'
 import { FullPageSpinner } from '@/components/ui/Spinner'
 import { formatCurrency } from '@/lib/utils'
-import { FEE_TYPES, FEE_FREQUENCIES } from '@/lib/constants'
+import { FEE_TYPES, FEE_FREQUENCIES, FEE_PAYMENT_TYPES } from '@/lib/constants'
 import { useForm } from 'react-hook-form'
 import type { Fee } from '@/types'
 
@@ -36,14 +36,15 @@ export function FeesPage() {
   interface CreateFeeForm {
     name: string
     type: string
+    paymentType: string
     amount: number
     frequency: string
     dueDay: number
     description?: string
   }
 
-  const { register, handleSubmit, reset, watch } = useForm<CreateFeeForm>({
-    defaultValues: { type: 'ASSIGNED', frequency: 'MONTHLY', dueDay: 1 },
+  const { register, handleSubmit, reset, watch, formState: { errors: feeErrors } } = useForm<CreateFeeForm>({
+    defaultValues: { type: 'ASSIGNED', paymentType: 'SCHEDULED', frequency: 'MONTHLY', dueDay: 1 },
   })
 
   const createMutation = useMutation({
@@ -142,6 +143,13 @@ export function FeesPage() {
             <Label>Fee Name</Label>
             <Input placeholder="Monthly Estate Dues" {...register('name', { required: true })} />
           </div>
+          <div>
+            <Label>Payment Type</Label>
+            <Select
+              options={FEE_PAYMENT_TYPES}
+              {...register('paymentType')}
+            />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Type</Label>
@@ -152,7 +160,21 @@ export function FeesPage() {
             </div>
             <div>
               <Label>Amount (NGN)</Label>
-              <Input type="number" placeholder="5000" {...register('amount', { valueAsNumber: true })} />
+              <Input
+                type="number"
+                placeholder="5000"
+                error={feeErrors.amount?.message}
+                {...register('amount', {
+                  valueAsNumber: true,
+                  validate: (v) =>
+                    v >= 2000 || 'Minimum fee amount is ₦2,000. Lower amounts create poor payment experience for members.',
+                })}
+              />
+              {!feeErrors.amount && watch('amount') >= 2000 && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Members will pay ₦{Number(watch('amount')).toLocaleString()} + service charge. The service charge covers payment processing.
+                </p>
+              )}
             </div>
           </div>
           {watch('type') === 'ASSIGNED' && (

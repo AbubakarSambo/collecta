@@ -9,9 +9,11 @@ import { authApi } from '@/api/auth'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
+import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card'
 import { generateSlug } from '@/lib/utils'
+import { NETWORK_TYPES } from '@/lib/constants'
 
 const step1Schema = z.object({
   firstName: z.string().min(1, 'First name is required').max(50),
@@ -28,6 +30,7 @@ const step2Schema = z.object({
     .max(50)
     .regex(/^[a-z0-9-]+$/, 'Only lowercase letters, numbers, and hyphens'),
   networkDescription: z.string().max(300).optional(),
+  networkType: z.string().min(1, 'Organisation type is required'),
 })
 
 type Step1Data = z.infer<typeof step1Schema>
@@ -194,6 +197,17 @@ export function RegisterPage() {
                     id="networkDescription"
                     placeholder="Brief description of your community..."
                     {...form2.register('networkDescription')}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="networkType">Organisation Type</Label>
+                  <Select
+                    id="networkType"
+                    placeholder="Select organisation type"
+                    options={NETWORK_TYPES}
+                    error={form2.formState.errors.networkType?.message}
+                    {...form2.register('networkType')}
                   />
                 </div>
 

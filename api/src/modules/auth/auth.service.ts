@@ -63,6 +63,7 @@ export class AuthService {
           slug: dto.networkSlug.toLowerCase(),
           description: dto.networkDescription,
           adminId: user.id,
+          networkType: dto.networkType ?? 'ESTATE',
         },
       });
 

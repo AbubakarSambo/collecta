@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaystackService } from '../paystack/paystack.service';
 import { EmailService } from '../email/email.service';
+import { calculateServiceCharge } from '../../common/utils/service-charge.util';
 
 @Injectable()
 export class PortalService {
@@ -194,9 +195,12 @@ export class PortalService {
       payAmount = requestedAmount;
     }
 
+    const serviceCharge = calculateServiceCharge(payAmount);
+
     const { authorization_url, reference } = await this.paystackService.createPaymentLink({
       id: charge.id,
       amount: payAmount,
+      serviceCharge,
       description: charge.description || charge.fee?.name,
       member: {
         email: charge.member.email,
@@ -211,7 +215,11 @@ export class PortalService {
 
     await this.prisma.charge.update({
       where: { id: chargeId },
-      data: { paystackPaymentLink: authorization_url, paystackReference: reference },
+      data: {
+        paystackPaymentLink: authorization_url,
+        paystackReference: reference,
+        serviceCharge,
+      },
     });
 
     return {
@@ -220,6 +228,8 @@ export class PortalService {
       charge: {
         id: charge.id,
         amount: payAmount,
+        serviceCharge,
+        total: payAmount + serviceCharge,
         feeName: charge.fee?.name || charge.description,
         memberName: `${charge.member.firstName} ${charge.member.lastName}`,
       },
@@ -286,9 +296,12 @@ export class PortalService {
       },
     });
 
+    const serviceCharge = calculateServiceCharge(payAmount);
+
     const { authorization_url, reference } = await this.paystackService.createPaymentLink({
       id: charge.id,
       amount: payAmount,
+      serviceCharge,
       description: fee.name,
       member: { email: payer.email, firstName: member.firstName, lastName: member.lastName },
       network: { paystackSubaccountCode: network.paystackSubaccountCode, name: network.name },
@@ -296,10 +309,10 @@ export class PortalService {
 
     await this.prisma.charge.update({
       where: { id: charge.id },
-      data: { paystackReference: reference },
+      data: { paystackReference: reference, serviceCharge },
     });
 
-    return { paymentUrl: authorization_url };
+    return { paymentUrl: authorization_url, serviceCharge, total: payAmount + serviceCharge };
   }
 
   async verifyPayment(reference: string) {

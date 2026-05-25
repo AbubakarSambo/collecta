@@ -146,6 +146,11 @@ export class PaymentsService {
         return { received: true };
       }
 
+      // Read service charge from the charge record (stored at payment initiation)
+      const serviceCharge = charge.serviceCharge ? Number(charge.serviceCharge) : 0;
+      // Earn 200 SMS credits per ₦1,000 of service charge
+      const creditsEarned = Math.floor((serviceCharge / 1000) * 200);
+
       await this.prisma.$transaction(async (tx) => {
         const amount = event.data.amount / 100; // Convert from kobo
 
@@ -155,6 +160,7 @@ export class PaymentsService {
             chargeId: charge.id,
             memberId: charge.memberId,
             amount,
+            serviceCharge,
             method: 'PAYSTACK',
             paystackReference: reference,
             metadata: event.data,
@@ -174,9 +180,20 @@ export class PaymentsService {
             paidAt: newStatus === 'PAID' ? new Date() : charge.paidAt,
           },
         });
+
+        // Award SMS credits to the network based on service charge earned
+        if (creditsEarned > 0) {
+          await tx.network.update({
+            where: { id: charge.networkId },
+            data: { smsCredits: { increment: creditsEarned } },
+          });
+        }
       });
 
-      this.logger.log(`Paystack webhook processed for charge ${metadata.chargeId}`);
+      this.logger.log(
+        `Paystack webhook processed for charge ${metadata.chargeId}` +
+          (creditsEarned > 0 ? ` — awarded ${creditsEarned} SMS credits` : ''),
+      );
     }
 
     return { received: true };

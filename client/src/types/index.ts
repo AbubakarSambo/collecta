@@ -1,3 +1,9 @@
+// Enums
+export type NetworkType = 'ESTATE' | 'CHAMA' | 'SUPPLIER' | 'DEBT'
+export type FeePaymentType = 'SCHEDULED' | 'OPEN' | 'WINDOWED'
+export type VerificationStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+export type ReminderTone = 'FRIENDLY' | 'CLEAR' | 'FIRM' | 'FORMAL'
+
 // Auth
 export interface User {
   id: string
@@ -28,6 +34,13 @@ export interface Network {
   currency: string
   timezone: string
   isActive: boolean
+  networkType?: NetworkType
+  verificationStatus?: VerificationStatus
+  verificationNotes?: string
+  isVerified?: boolean
+  smsCredits?: number
+  brandColor?: string
+  contactPhone?: string
   createdAt: string
   updatedAt: string
   _count?: {
@@ -68,6 +81,7 @@ export interface Fee {
   name: string
   description?: string
   type: FeeType
+  paymentType?: FeePaymentType
   amount: number
   frequency: FeeFrequency
   dueDay: number

@@ -9,6 +9,7 @@ export const authApi = {
     networkName: string
     networkSlug: string
     networkDescription?: string
+    networkType?: string
   }) => apiClient.post('/auth/register', data).then((r) => r.data),
 
   login: (data: { email: string; password: string }) =>

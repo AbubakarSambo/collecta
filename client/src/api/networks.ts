@@ -16,6 +16,12 @@ export const networksApi = {
     apiClient.post('/networks/me/setup-paystack', data).then((r) => r.data),
 
   getBySlug: (slug: string) => apiClient.get(`/networks/${slug}`).then((r) => r.data),
+
+  getSmsCredits: (): Promise<{ credits: number }> =>
+    apiClient.get('/networks/sms-credits').then((r) => r.data.data ?? r.data),
+
+  topUpSmsCredits: (bundle: number): Promise<{ credits: number }> =>
+    apiClient.post('/networks/sms-credits/topup', { bundle }).then((r) => r.data.data ?? r.data),
 }
 
 export const paystackApi = {

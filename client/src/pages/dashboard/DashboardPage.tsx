@@ -57,6 +57,27 @@ export function DashboardPage() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Verification banner */}
+      {network?.verificationStatus === 'PENDING' && !network?.isVerified && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm text-amber-800">
+            <span className="font-semibold">Verification pending</span> — Your portal will go live once our team reviews your organisation. You can add members and create fees while you wait. Usually completed within 24 hours.
+          </p>
+        </div>
+      )}
+      {network?.verificationStatus === 'REJECTED' && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-sm text-red-800">
+            <span className="font-semibold">Verification rejected</span>
+            {network?.verificationNotes ? ` — ${network.verificationNotes}` : ''}. Please contact{' '}
+            <a href="mailto:support@collecta.africa" className="underline font-medium">
+              support@collecta.africa
+            </a>{' '}
+            to resolve this.
+          </p>
+        </div>
+      )}
+
       <PageHeader
         title={`${network?.name || 'Dashboard'}`}
         description="Overview of your network's financial activity"

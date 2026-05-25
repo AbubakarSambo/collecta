@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { CheckCircle2, AlertCircle, Building2 } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Building2, MessageSquare } from 'lucide-react'
 import { networksApi, paystackApi } from '@/api/networks'
 import { useNetwork } from '@/hooks/useNetwork'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -19,6 +19,14 @@ import { cn } from '@/lib/utils'
 const TABS = [
   { id: 'network', label: 'Network Info' },
   { id: 'paystack', label: 'Paystack' },
+  { id: 'sms', label: 'SMS Credits' },
+]
+
+const SMS_BUNDLES = [
+  { credits: 100, price: 600 },
+  { credits: 500, price: 3000 },
+  { credits: 1000, price: 6000 },
+  { credits: 5000, price: 28500, note: '5% discount' },
 ]
 
 const setupSchema = z.object({
@@ -102,6 +110,21 @@ export function SettingsPage() {
       toast.error(err?.response?.data?.message || 'Setup failed, please try again'),
   })
 
+  const { data: smsCreditsData, isLoading: smsLoading } = useQuery({
+    queryKey: ['sms-credits'],
+    queryFn: () => networksApi.getSmsCredits(),
+    enabled: activeTab === 'sms',
+  })
+
+  const topUpMutation = useMutation({
+    mutationFn: (bundle: number) => networksApi.topUpSmsCredits(bundle),
+    onSuccess: () => {
+      toast.success('SMS credits purchased successfully')
+      queryClient.invalidateQueries({ queryKey: ['sms-credits'] })
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Top-up failed'),
+  })
+
   const onSubmit = (data: SetupFormData) => {
     if (!verifiedName) {
       toast.error('Please verify your account first')
@@ -163,6 +186,71 @@ export function SettingsPage() {
             </form>
           </CardContent>
         </Card>
+      )}
+
+      {activeTab === 'sms' && (
+        <div className="space-y-4 max-w-2xl">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-green-600" />
+                SMS Credits
+              </CardTitle>
+              <CardDescription>
+                Purchase credits to send SMS reminders to your members
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Current balance */}
+              <div className="rounded-lg border bg-gray-50 px-4 py-3">
+                {smsLoading ? (
+                  <div className="h-6 w-40 animate-pulse rounded bg-gray-200" />
+                ) : (
+                  <p className="text-sm font-medium text-gray-900">
+                    <span className="text-2xl font-bold text-green-700">
+                      {(smsCreditsData?.credits ?? 0).toLocaleString()}
+                    </span>{' '}
+                    credits remaining
+                  </p>
+                )}
+              </div>
+
+              {/* Top-up bundles */}
+              <div>
+                <p className="mb-3 text-sm font-medium text-gray-700">Top-up bundles</p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {SMS_BUNDLES.map((bundle) => (
+                    <button
+                      key={bundle.credits}
+                      type="button"
+                      onClick={() => topUpMutation.mutate(bundle.credits)}
+                      disabled={topUpMutation.isPending}
+                      className="flex flex-col items-center rounded-lg border border-gray-200 bg-white px-3 py-4 text-center transition-colors hover:border-green-400 hover:bg-green-50 disabled:opacity-50"
+                    >
+                      <span className="text-lg font-bold text-gray-900">
+                        {bundle.credits.toLocaleString()}
+                      </span>
+                      <span className="text-xs text-gray-500">credits</span>
+                      <span className="mt-2 text-sm font-semibold text-green-700">
+                        ₦{bundle.price.toLocaleString()}
+                      </span>
+                      {bundle.note && (
+                        <span className="mt-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                          {bundle.note}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Info note */}
+              <p className="text-xs text-gray-500 border-t pt-4">
+                1 credit = 1 SMS. Credits are also earned automatically when members pay online (200 credits per ₦1,000 in service charges collected).
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {activeTab === 'paystack' && (
