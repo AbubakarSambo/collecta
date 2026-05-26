@@ -5,9 +5,9 @@ const SECTIONS = [
   { title: 'How we use it', body: 'Member data is used solely for payment processing and sending payment reminders on behalf of the organisation. We do not sell or share data with third parties for marketing purposes.' },
   { title: 'Payment data', body: 'Payment transactions are processed by Paystack. We store payment references and amounts. We do not store card numbers or bank credentials.' },
   { title: 'Data retention', body: 'Payment records are retained indefinitely and belong to the organisation. Members may request access to their own payment records at any time.' },
-  { title: 'Your rights', body: 'You have the right to access, correct, or request deletion of your personal data. Contact support@collecta.africa for data requests.' },
+  { title: 'Your rights', body: 'You have the right to access, correct, or request deletion of your personal data. Contact support@collecta.services for data requests.' },
   { title: 'Security', body: 'All data is transmitted over HTTPS. Passwords are hashed using bcrypt. OTPs are time-limited and hashed before storage.' },
-  { title: 'Contact', body: 'For privacy questions: support@collecta.africa' },
+  { title: 'Contact', body: 'For privacy questions: support@collecta.services' },
 ]
 
 export function PrivacyPage() {

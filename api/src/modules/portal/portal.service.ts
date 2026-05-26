@@ -38,6 +38,7 @@ export class PortalService {
         isActive: true,
         isVerified: true,
         verificationStatus: true,
+        paystackSubaccountCode: true,
       },
     });
 
@@ -48,6 +49,15 @@ export class PortalService {
     if (network.verificationStatus !== 'APPROVED') {
       return {
         comingSoon: true,
+        reason: 'pending_verification',
+        network: { name: network.name, logoUrl: network.logoUrl },
+      };
+    }
+
+    if (!network.paystackSubaccountCode) {
+      return {
+        comingSoon: true,
+        reason: 'no_bank_account',
         network: { name: network.name, logoUrl: network.logoUrl },
       };
     }
@@ -167,7 +177,7 @@ export class PortalService {
   async getCharge(slug: string, chargeId: string) {
     const network = await this.prisma.network.findUnique({
       where: { slug: slug.toLowerCase() },
-      select: { id: true, name: true, isVerified: true, country: true },
+      select: { id: true, name: true, isVerified: true, country: true, bankAccountName: true, settlementBank: true },
     });
 
     if (!network) {
@@ -202,6 +212,8 @@ export class PortalService {
         isVerified: network.isVerified,
         country: network.country || 'NG',
         kenyaEnabled: this.configService.get<boolean>('app.kenyaEnabled') || false,
+        bankAccountName: network.bankAccountName,
+        settlementBank: network.settlementBank,
       },
     };
   }
@@ -213,6 +225,12 @@ export class PortalService {
 
     if (!network) {
       throw new NotFoundException('Network not found');
+    }
+
+    if (!network.paystackSubaccountCode) {
+      throw new BadRequestException(
+        'This network has not connected a bank account. Payments cannot be processed until a bank account is set up.',
+      );
     }
 
     const charge = await this.prisma.charge.findFirst({
@@ -301,6 +319,12 @@ export class PortalService {
       throw new NotFoundException('Network not found or inactive');
     }
 
+    if (!network.paystackSubaccountCode) {
+      throw new BadRequestException(
+        'This network has not connected a bank account. Payments cannot be processed until a bank account is set up.',
+      );
+    }
+
     const fee = await this.prisma.fee.findFirst({
       where: { id: feeId, networkId: network.id, type: 'OPEN', isActive: true },
     });
@@ -372,12 +396,32 @@ export class PortalService {
     const existing = await this.prisma.payment.findFirst({
       where: { paystackReference: reference },
       include: {
-        charge: { include: { fee: true, network: { select: { name: true } } } },
+        charge: { include: { fee: true, network: { select: { name: true, slug: true } } } },
         member: { select: { consecutiveMonthsPaid: true, firstName: true, lastName: true } },
       },
     });
 
     if (existing) {
+      const existingOutstanding = await this.prisma.charge.findMany({
+        where: {
+          memberId: existing.memberId,
+          networkId: existing.networkId,
+          status: { in: ['PENDING', 'OVERDUE', 'PARTIALLY_PAID'] },
+          id: { not: existing.chargeId },
+        },
+        orderBy: { dueDate: 'asc' },
+        take: 3,
+        select: {
+          id: true,
+          amount: true,
+          paidAmount: true,
+          dueDate: true,
+          status: true,
+          description: true,
+          fee: { select: { name: true } },
+        },
+      });
+
       return {
         status: existing.charge.status,
         alreadyRecorded: true,
@@ -385,9 +429,17 @@ export class PortalService {
         feeName: existing.charge.fee?.name || existing.charge.description || 'Payment',
         amount: Number(existing.amount),
         networkName: existing.charge.network?.name,
+        networkSlug: existing.charge.network?.slug,
         memberName: existing.member
           ? `${existing.member.firstName} ${existing.member.lastName}`
           : undefined,
+        outstandingCharges: existingOutstanding.map((c) => ({
+          id: c.id,
+          feeName: c.fee?.name || c.description || 'Charge',
+          amount: Number(c.amount) - Number(c.paidAmount),
+          dueDate: c.dueDate,
+          status: c.status,
+        })),
       };
     }
 
@@ -466,13 +518,42 @@ export class PortalService {
     const feeName = charge.fee?.name || charge.description || 'Payment';
     const memberName = `${charge.member.firstName} ${charge.member.lastName}`;
 
+    // Fetch remaining outstanding charges for directional step on confirmation screen
+    const outstandingCharges = await this.prisma.charge.findMany({
+      where: {
+        memberId: charge.memberId,
+        networkId: charge.networkId,
+        status: { in: ['PENDING', 'OVERDUE', 'PARTIALLY_PAID'] },
+        id: { not: charge.id },
+      },
+      orderBy: { dueDate: 'asc' },
+      take: 3,
+      select: {
+        id: true,
+        amount: true,
+        paidAmount: true,
+        dueDate: true,
+        status: true,
+        description: true,
+        fee: { select: { name: true } },
+      },
+    });
+
     return {
       status: 'success',
       tierTag: this.getTierTag(updatedMember?.consecutiveMonthsPaid ?? 0),
       feeName,
       amount,
       networkName: charge.network.name,
+      networkSlug: charge.network.slug,
       memberName,
+      outstandingCharges: outstandingCharges.map((c) => ({
+        id: c.id,
+        feeName: c.fee?.name || c.description || 'Charge',
+        amount: Number(c.amount) - Number(c.paidAmount),
+        dueDate: c.dueDate,
+        status: c.status,
+      })),
     };
   }
 

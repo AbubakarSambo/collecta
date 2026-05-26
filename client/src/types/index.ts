@@ -38,6 +38,7 @@ export interface Network {
   verificationStatus?: VerificationStatus
   verificationNotes?: string
   isVerified?: boolean
+  hasSubmittedVerification?: boolean
   smsCredits?: number
   brandColor?: string
   contactPhone?: string

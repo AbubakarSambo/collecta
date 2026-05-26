@@ -1,13 +1,21 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { CheckCircle, XCircle, Trophy, Star, Mail } from 'lucide-react'
+import { useSearchParams, Link } from 'react-router-dom'
+import { CheckCircle, XCircle, Trophy, Star, Mail, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { Spinner } from '@/components/ui/Spinner'
-import { cn, formatCurrency } from '@/lib/utils'
+import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import apiClient from '@/api/client'
 
 interface TierTag {
   tier: 'TOP' | 'SECOND' | null
   label: string | null
+}
+
+interface OutstandingCharge {
+  id: string
+  feeName: string
+  amount: number
+  dueDate: string
+  status: string
 }
 
 interface PaymentResult {
@@ -17,8 +25,10 @@ interface PaymentResult {
   feeName?: string
   amount?: number
   networkName?: string
+  networkSlug?: string
   memberName?: string
   paidAt?: string
+  outstandingCharges?: OutstandingCharge[]
 }
 
 function TierBadge({ tierTag }: { tierTag: TierTag | null }) {
@@ -113,6 +123,43 @@ export function PaymentCallbackPage() {
               <Mail className="h-3.5 w-3.5" />
               A receipt has been sent to your email address.
             </div>
+
+            {/* Directional step — outstanding charges */}
+            {result?.outstandingCharges !== undefined && (
+              <div className="mt-4">
+                {result.outstandingCharges.length === 0 ? (
+                  <div className="flex items-center justify-center gap-2 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
+                    <span className="font-medium">Account clear — no outstanding charges.</span>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+                      <div className="flex-1">
+                        <p className="font-medium mb-1">You still have outstanding charges:</p>
+                        <div className="space-y-1">
+                          {result.outstandingCharges.map((c) => (
+                            <div key={c.id} className="flex items-center justify-between">
+                              <span>{c.feeName} — due {formatDate(c.dueDate)}</span>
+                              <span className="font-semibold ml-2">{formatCurrency(c.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {result.networkSlug && (
+                          <Link
+                            to={`/pay/${result.networkSlug}/pay/${result.outstandingCharges[0].id}`}
+                            className="mt-2 inline-block font-medium underline text-amber-800 hover:text-amber-900"
+                          >
+                            Pay next charge →
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <TierBadge tierTag={result?.tierTag ?? null} />
           </>

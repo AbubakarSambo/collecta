@@ -33,6 +33,7 @@ export class NetworksService {
         _count: {
           select: { members: true, fees: true, charges: true },
         },
+        verificationRequest: { select: { id: true } },
       },
     });
 
@@ -40,7 +41,8 @@ export class NetworksService {
       throw new NotFoundException('Network not found');
     }
 
-    return network;
+    const { verificationRequest, ...rest } = network;
+    return { ...rest, hasSubmittedVerification: !!verificationRequest };
   }
 
   async update(adminId: string, dto: UpdateNetworkDto) {
@@ -190,7 +192,7 @@ export class NetworksService {
 
     // Send onboarding templates email to admin
     if (network.admin?.email) {
-      const portalUrl = `${process.env.FRONTEND_URL || 'https://collecta.africa'}/pay/${network.slug}`;
+      const portalUrl = `${process.env.FRONTEND_URL || 'https://collecta.services'}/pay/${network.slug}`;
       this.emailService
         .sendOnboardingTemplates(
           network.admin.email,
@@ -259,6 +261,148 @@ export class NetworksService {
       added: bundle,
       price,
     };
+  }
+
+  async getMonitoringSignals() {
+    const approvedNetworks = await this.prisma.network.findMany({
+      where: { verificationStatus: 'APPROVED' },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        networkType: true,
+        createdAt: true,
+        updatedAt: true,
+        adminId: true,
+        _count: { select: { members: true, fees: true } },
+        fees: { select: { amount: true }, take: 10 },
+        members: {
+          select: { createdAt: true },
+          orderBy: { createdAt: 'asc' },
+          take: 200,
+        },
+      },
+    });
+
+    // Thresholds per org type (max reasonable fee amount in Naira)
+    const FEE_THRESHOLDS: Record<string, number> = {
+      ESTATE: 500_000,
+      CHAMA: 200_000,
+      SUPPLIER: 5_000_000,
+      DEBT: 10_000_000,
+    };
+
+    const signals: Array<{
+      networkId: string;
+      networkName: string;
+      slug: string;
+      signal: string;
+      detail: string;
+    }> = [];
+
+    for (const network of approvedNetworks) {
+      // Signal 1: fee amount unusually high for org type
+      const threshold = FEE_THRESHOLDS[network.networkType] ?? 500_000;
+      for (const fee of network.fees) {
+        if (Number(fee.amount) > threshold) {
+          signals.push({
+            networkId: network.id,
+            networkName: network.name,
+            slug: network.slug,
+            signal: 'HIGH_FEE_AMOUNT',
+            detail: `Fee of ₦${Number(fee.amount).toLocaleString()} exceeds expected ceiling for ${network.networkType}`,
+          });
+          break; // one signal per network
+        }
+      }
+
+      // Signal 2: member count growing very rapidly (>50 members added within 24 hours of approval)
+      if (network.members.length >= 50) {
+        const firstMemberTime = new Date(network.members[0].createdAt).getTime();
+        const fiftiethMemberTime = new Date(network.members[49].createdAt).getTime();
+        const hoursToFifty = (fiftiethMemberTime - firstMemberTime) / (1000 * 60 * 60);
+        if (hoursToFifty < 24) {
+          signals.push({
+            networkId: network.id,
+            networkName: network.name,
+            slug: network.slug,
+            signal: 'RAPID_MEMBER_GROWTH',
+            detail: `50 members added in ${Math.round(hoursToFifty)} hours`,
+          });
+        }
+      }
+    }
+
+    // Signal 3: same admin with multiple networks (admin can only have one network via unique constraint,
+    // but flag admins who created multiple networks across different accounts sharing same name pattern)
+    // Simple: list any admin with >1 network (schema prevents this, so this wonits useful here)
+
+    return { signals, checkedAt: new Date() };
+  }
+
+  async getPlatformStats() {
+    const [totalNetworks, approvedNetworks, pendingVerifications, totalMembers, paymentsAgg] =
+      await Promise.all([
+        this.prisma.network.count(),
+        this.prisma.network.count({ where: { verificationStatus: 'APPROVED' } }),
+        this.prisma.verificationRequest.count({ where: { status: 'PENDING' } }),
+        this.prisma.member.count(),
+        this.prisma.payment.aggregate({ _sum: { amount: true }, _count: { _all: true } }),
+      ]);
+
+    return {
+      totalNetworks,
+      approvedNetworks,
+      pendingVerifications,
+      totalMembers,
+      totalPaymentsCount: paymentsAgg._count._all,
+      totalPaymentsVolume: Number(paymentsAgg._sum.amount ?? 0),
+    };
+  }
+
+  async getAllNetworks(page: number = 1, search?: string) {
+    const where: any = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { slug: { contains: search, mode: 'insensitive' } },
+            { admin: { email: { contains: search, mode: 'insensitive' } } },
+          ],
+        }
+      : {};
+
+    const [networks, total] = await Promise.all([
+      this.prisma.network.findMany({
+        where,
+        include: {
+          admin: { select: { email: true, firstName: true, lastName: true } },
+          _count: { select: { members: true, fees: true, payments: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * 20,
+        take: 20,
+      }),
+      this.prisma.network.count({ where }),
+    ]);
+
+    return {
+      data: networks,
+      meta: { total, page, totalPages: Math.ceil(total / 20) },
+    };
+  }
+
+  async getPendingVerifications() {
+    return this.prisma.verificationRequest.findMany({
+      where: { status: 'PENDING' },
+      include: {
+        network: {
+          include: {
+            admin: { select: { email: true, firstName: true, lastName: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
   }
 
   async findBySlug(slug: string) {

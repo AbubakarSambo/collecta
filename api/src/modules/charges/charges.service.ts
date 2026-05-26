@@ -108,6 +108,7 @@ export class ChargesService {
       overdueCharges,
       collectedThisMonth,
       ghostMemberCount,
+      overdueChargesForPattern,
     ] = await Promise.all([
       this.prisma.member.count({ where: { networkId, status: 'ACTIVE' } }),
       this.prisma.charge.aggregate({
@@ -138,7 +139,23 @@ export class ChargesService {
           ],
         },
       }),
+      // Fetch overdue charges to compute persistent non-payers (2+ distinct billing months)
+      this.prisma.charge.findMany({
+        where: { networkId, status: 'OVERDUE' },
+        select: { memberId: true, billingMonth: true, dueDate: true },
+      }),
     ]);
+
+    // Persistent non-payer: member with OVERDUE charges across 2+ distinct billing months
+    const memberOverdueMonths: Record<string, Set<string>> = {};
+    for (const c of overdueChargesForPattern) {
+      if (!memberOverdueMonths[c.memberId]) memberOverdueMonths[c.memberId] = new Set();
+      const monthKey = c.billingMonth || new Date(c.dueDate).toISOString().slice(0, 7);
+      memberOverdueMonths[c.memberId].add(monthKey);
+    }
+    const persistentNonPayerCount = Object.values(memberOverdueMonths).filter(
+      (months) => months.size >= 2,
+    ).length;
 
     return {
       totalMembers,
@@ -148,6 +165,7 @@ export class ChargesService {
       overdueChargesCount: overdueCharges._count,
       collectedThisMonth: collectedThisMonth._sum.amount || 0,
       ghostMemberCount,
+      persistentNonPayerCount,
     };
   }
 

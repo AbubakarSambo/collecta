@@ -54,7 +54,7 @@ export function AcceptableUsePage() {
       <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
         <p className="text-sm text-orange-800">
           Violations of this policy may result in immediate suspension of your network's portal without notice.
-          If you believe your organisation has been incorrectly suspended, contact support@collecta.africa.
+          If you believe your organisation has been incorrectly suspended, contact support@collecta.services.
         </p>
       </div>
 

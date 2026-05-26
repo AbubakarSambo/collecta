@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { RemindersService } from './reminders.service';
 import { BlastReminderDto } from './dto/blast-reminder.dto';
@@ -11,6 +20,34 @@ import { NetworkGuard } from '../../common/guards';
 export class RemindersController {
   constructor(private readonly remindersService: RemindersService) {}
 
+  // ─── Rules ───────────────────────────────────────────────────────────────────
+
+  @Get('rules')
+  @ApiOperation({ summary: 'Get configured reminder rules for this network' })
+  async getRules(@Param('networkId') networkId: string) {
+    return this.remindersService.getRules(networkId);
+  }
+
+  @Post('rules')
+  @ApiOperation({ summary: 'Create a reminder rule' })
+  async createRule(
+    @Param('networkId') networkId: string,
+    @Body() body: { daysOffset: number; channels: string[] },
+  ) {
+    return this.remindersService.createRule(networkId, body.daysOffset, body.channels);
+  }
+
+  @Delete('rules/:ruleId')
+  @ApiOperation({ summary: 'Delete a reminder rule' })
+  async deleteRule(
+    @Param('networkId') networkId: string,
+    @Param('ruleId') ruleId: string,
+  ) {
+    return this.remindersService.deleteRule(networkId, ruleId);
+  }
+
+  // ─── History & Blast ─────────────────────────────────────────────────────────
+
   @Get('history')
   @ApiOperation({ summary: 'Get reminder history' })
   async getHistory(@Param('networkId') networkId: string) {
@@ -18,7 +55,7 @@ export class RemindersController {
   }
 
   @Get('blast-estimate')
-  @ApiOperation({ summary: 'Estimate credit cost of a blast reminder before sending' })
+  @ApiOperation({ summary: 'Estimate credit cost of a blast reminder' })
   async blastEstimate(
     @Param('networkId') networkId: string,
     @Query('channels') channels: string,

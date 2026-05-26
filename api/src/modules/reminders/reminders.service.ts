@@ -1,9 +1,16 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { BlastReminderDto } from './dto/blast-reminder.dto';
+
+const BATCH_SIZE = 500;
 
 @Injectable()
 export class RemindersService {
@@ -16,23 +23,33 @@ export class RemindersService {
   ) {}
 
   private get frontendUrl() {
-    return this.configService.get<string>('app.frontendUrl') || 'https://collecta.africa';
+    return (
+      this.configService.get<string>('app.frontendUrl') || 'https://collecta.services'
+    );
   }
 
-  // ─── Tone Engine ─────────────────────────────────────────────────────────────
+  // ─── Tone Engine ──────────────────────────────────────────────────────────────
 
-  private getTone(daysOverdue: number, paymentType: string): string {
-    if (paymentType === 'OPEN') return daysOverdue <= 0 ? 'FRIENDLY' : 'CLEAR';
+  private getTone(
+    daysFromDue: number,
+    paymentType: string,
+    daysToWindowClose?: number,
+  ): string {
+    if (paymentType === 'OPEN') {
+      return daysFromDue <= 0 ? 'FRIENDLY' : 'CLEAR';
+    }
     if (paymentType === 'WINDOWED') {
-      // Soft reminders throughout the window; escalate only after window closes
-      if (daysOverdue <= 0) return 'FRIENDLY';
-      if (daysOverdue < 5) return 'CLEAR';
+      if (daysToWindowClose === undefined) {
+        return daysFromDue <= 0 ? 'FRIENDLY' : 'FORMAL';
+      }
+      if (daysToWindowClose > 7) return 'FRIENDLY';
+      if (daysToWindowClose > 0) return 'FIRM';
       return 'FORMAL';
     }
-    // SCHEDULED (default)
-    if (daysOverdue <= -1) return 'FRIENDLY';
-    if (daysOverdue === 0) return 'CLEAR';
-    if (daysOverdue < 5) return 'FIRM';
+    // SCHEDULED
+    if (daysFromDue <= -1) return 'FRIENDLY';
+    if (daysFromDue === 0) return 'CLEAR';
+    if (daysFromDue < 5) return 'FIRM';
     return 'FORMAL';
   }
 
@@ -43,7 +60,7 @@ export class RemindersService {
     member: { firstName: string; lastName: string },
     feeName: string,
     amount: number,
-    daysOverdue: number,
+    daysFromDue: number,
     penaltyPercent: number,
     payLink: string,
     socialProof?: string,
@@ -51,14 +68,11 @@ export class RemindersService {
     const name =
       tone === 'FORMAL' ? `${member.firstName} ${member.lastName}` : member.firstName;
     const fmt = (n: number) => `NGN ${n.toLocaleString('en-NG')}`;
-
     let msg: string;
 
     switch (tone) {
       case 'FRIENDLY': {
-        const streakSuffix =
-          !socialProof ? '' : '';
-        const extra = socialProof ? ` ${socialProof}` : streakSuffix;
+        const extra = socialProof ? ` ${socialProof}` : '';
         msg = `Hi ${name}, your ${feeName} of ${fmt(amount)} is due soon.${extra} Pay: ${payLink}`;
         return msg.length > 160 ? msg.substring(0, 157) + '...' : msg;
       }
@@ -66,23 +80,23 @@ export class RemindersService {
         msg = `${name}, your ${feeName} of ${fmt(amount)} is due today. Pay now: ${payLink}`;
         return msg.substring(0, 160);
       case 'FIRM': {
-        const daysLeft = 5 - daysOverdue;
+        const daysLeft = 5 - daysFromDue;
         const penalty =
           penaltyPercent > 0
             ? ` A ${penaltyPercent}% penalty applies after ${daysLeft} more day${daysLeft === 1 ? '' : 's'}.`
             : '';
-        msg = `${name}, your ${feeName} of ${fmt(amount)} is ${daysOverdue} day${daysOverdue === 1 ? '' : 's'} overdue.${penalty} Pay: ${payLink}`;
+        msg = `${name}, your ${feeName} of ${fmt(amount)} is ${daysFromDue} day${daysFromDue === 1 ? '' : 's'} overdue.${penalty} Pay: ${payLink}`;
         return msg.substring(0, 160);
       }
       case 'FORMAL':
-        msg = `${name}, your ${feeName} payment of ${fmt(amount)} is ${daysOverdue} days overdue. Your access may be affected. Pay: ${payLink}`;
+        msg = `${name}, your ${feeName} payment of ${fmt(amount)} is ${daysFromDue} days overdue. Your access may be affected. Pay: ${payLink}`;
         return msg.substring(0, 160);
       default:
         return `${name}, please pay your ${feeName} of ${fmt(amount)}. Pay: ${payLink}`;
     }
   }
 
-  // ─── Social Proof / Streak ────────────────────────────────────────────────────
+  // ─── Social Proof ─────────────────────────────────────────────────────────────
 
   private getSocialProofMessage(
     paidCount: number,
@@ -105,12 +119,10 @@ export class RemindersService {
 
   private async maybeSendLowCreditWarning(network: any): Promise<void> {
     if (network.smsCredits > 0) return;
-
     const now = new Date();
     const lastSent = network.smsWarningLastSentAt
       ? new Date(network.smsWarningLastSentAt)
       : null;
-
     if (lastSent && now.getTime() - lastSent.getTime() < 24 * 60 * 60 * 1000) return;
 
     try {
@@ -118,7 +130,6 @@ export class RemindersService {
         where: { id: network.adminId },
         select: { email: true, firstName: true },
       });
-
       if (admin?.email) {
         await this.emailService.sendFeeReminderEmail(
           admin.email,
@@ -131,65 +142,62 @@ export class RemindersService {
           `Your network "${network.name}" has run out of SMS credits. Automated SMS reminders have been paused. Please top up your credits to resume.`,
         );
       }
-
       await this.prisma.network.update({
         where: { id: network.id },
         data: { smsWarningLastSentAt: now },
       });
     } catch (err) {
-      this.logger.error(`Failed to send low-credit warning for network ${network.id}: ${err.message}`);
+      this.logger.error(
+        `Failed to send low-credit warning for network ${network.id}: ${err.message}`,
+      );
     }
   }
 
-  // ─── Automated Cron: Every 5 minutes ─────────────────────────────────────────
+  // ─── Automated Cron ───────────────────────────────────────────────────────────
 
   @Cron('*/5 * * * *')
   async sendAutomatedReminders() {
-    this.logger.log('Running automated reminder job (per-network round-robin)...');
+    this.logger.log('Running automated reminder job...');
 
-    // Pick the single network with oldest updatedAt that has pending/overdue charges
     const network = await this.prisma.network.findFirst({
       where: {
         isActive: true,
-        charges: {
-          some: {
-            status: { in: ['PENDING', 'OVERDUE'] },
-          },
-        },
+        reminderRules: { some: { isActive: true } },
       },
-      orderBy: { updatedAt: 'asc' },
+      orderBy: { lastRunAt: 'asc' },
+      include: { reminderRules: { where: { isActive: true } } },
     });
 
-    if (!network) {
-      this.logger.log('No active networks with pending charges found.');
+    if (!network || network.reminderRules.length === 0) {
+      this.logger.log('No active networks with configured reminder rules.');
       return;
     }
 
-    this.logger.log(`Processing reminders for network: ${network.name} (${network.id})`);
+    this.logger.log(
+      `Processing reminders for: ${network.name} (cursor: ${network.lastProcessedId ?? 'start'})`,
+    );
 
     try {
-      await this.processNetworkReminders(network);
+      await this.processNetworkBatch(network);
     } catch (err) {
-      this.logger.error(`Failed to process reminders for network ${network.id}: ${err.message}`);
+      this.logger.error(
+        `Failed to process reminders for network ${network.id}: ${err.message}`,
+      );
     }
-
-    // Touch updatedAt so this network rotates to the back of the queue
-    await this.prisma.network.update({
-      where: { id: network.id },
-      data: { updatedAt: new Date() },
-    });
   }
 
-  private async processNetworkReminders(network: any): Promise<void> {
+  private async processNetworkBatch(network: any): Promise<void> {
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
+    const todayMidnight = new Date(today);
+    todayMidnight.setHours(0, 0, 0, 0);
+    const todayStr = todayMidnight.toISOString().split('T')[0];
+    const msPerDay = 24 * 60 * 60 * 1000;
 
-    // Count non-guest members for social proof
+    // Social proof counts
     const [totalNonGuest, paidThisCycle] = await Promise.all([
       this.prisma.member.count({
         where: { networkId: network.id, isGuest: false, status: 'ACTIVE' },
       }),
-      // Count members who have at least one PAID charge for the current month
       this.prisma.member.count({
         where: {
           networkId: network.id,
@@ -198,35 +206,29 @@ export class RemindersService {
           charges: {
             some: {
               status: 'PAID',
-              paidAt: {
-                gte: new Date(today.getFullYear(), today.getMonth(), 1),
-              },
+              paidAt: { gte: new Date(today.getFullYear(), today.getMonth(), 1) },
             },
           },
         },
       }),
     ]);
-
     const socialProofMsg = this.getSocialProofMessage(
       paidThisCycle,
       totalNonGuest,
       network.networkType,
     );
 
-    // Find all active FeeAssignments for this network with pending/overdue charges
+    // Fetch batch of assignments from cursor
     const assignments = await this.prisma.feeAssignment.findMany({
       where: {
         isActive: true,
-        fee: {
-          networkId: network.id,
-          isActive: true,
-        },
-        charges: {
-          some: {
-            status: { in: ['PENDING', 'OVERDUE'] },
-          },
-        },
+        fee: { networkId: network.id, isActive: true },
+        member: { isGuest: false, status: 'ACTIVE' },
+        charges: { some: { status: { in: ['PENDING', 'OVERDUE'] } } },
+        ...(network.lastProcessedId ? { id: { gt: network.lastProcessedId } } : {}),
       },
+      orderBy: { id: 'asc' },
+      take: BATCH_SIZE,
       include: {
         fee: true,
         member: true,
@@ -238,7 +240,6 @@ export class RemindersService {
       },
     });
 
-    // Reload network to get fresh smsCredits
     let currentNetwork = await this.prisma.network.findUnique({
       where: { id: network.id },
     });
@@ -250,28 +251,56 @@ export class RemindersService {
       const charge = assignment.charges[0];
       if (!charge || !member) continue;
 
+      // Skip OPEN fees past their window
+      if (
+        fee.paymentType === 'OPEN' &&
+        fee.windowEnd &&
+        new Date(fee.windowEnd) < today
+      ) {
+        continue;
+      }
+
       const dueDate = new Date(charge.dueDate);
-      const msPerDay = 24 * 60 * 60 * 1000;
-      const daysOverdue = Math.floor(
-        (today.setHours(0, 0, 0, 0) - dueDate.setHours(0, 0, 0, 0)) / msPerDay,
+      dueDate.setHours(0, 0, 0, 0);
+      const daysFromDue = Math.round(
+        (todayMidnight.getTime() - dueDate.getTime()) / msPerDay,
       );
 
-      const tone = this.getTone(daysOverdue, fee.paymentType);
-      const feeName = fee.name;
+      // Check if any configured rule matches today's offset
+      const matchingRules = network.reminderRules.filter(
+        (r: any) => r.daysOffset === daysFromDue,
+      );
+      if (matchingRules.length === 0) continue;
+
+      let daysToWindowClose: number | undefined;
+      if (fee.paymentType === 'WINDOWED' && fee.windowEnd) {
+        const windowEnd = new Date(fee.windowEnd);
+        windowEnd.setHours(0, 0, 0, 0);
+        daysToWindowClose = Math.ceil(
+          (windowEnd.getTime() - todayMidnight.getTime()) / msPerDay,
+        );
+      }
+
+      const tone = this.getTone(daysFromDue, fee.paymentType, daysToWindowClose);
       const amount = Number(assignment.amount ?? fee.amount);
       const penaltyPercent = Number(fee.penaltyPercent ?? 0);
       const payLink = `${this.frontendUrl}/pay/${currentNetwork!.slug}/pay/${charge.id}`;
 
-      // Streak message (only FRIENDLY, social proof takes priority)
       const streakMsg = this.getStreakMessage(member.consecutiveMonthsPaid);
       const friendlyExtra =
-        tone === 'FRIENDLY' ? (socialProofMsg ?? (streakMsg ?? undefined)) : undefined;
+        tone === 'FRIENDLY' ? (socialProofMsg ?? streakMsg ?? undefined) : undefined;
 
-      const channels: string[] = ['EMAIL'];
-      if (member.phone && !member.smsOptedOut) channels.push('SMS');
+      // Collect all channels from matching rules (deduplicated)
+      const channels = [
+        ...new Set(matchingRules.flatMap((r: any) => r.channels as string[])),
+      ];
 
       for (const channel of channels) {
-        // Deduplicate: skip if already sent today for this assignment+channel
+        if (channel === 'SMS' && member.smsOptedOut) continue;
+        if (channel === 'SMS' && !member.phone) continue;
+        if (channel === 'EMAIL' && !member.email) continue;
+
+        // Dedup: only send once per assignment+day+channel
         const existing = await this.prisma.reminderLog.findUnique({
           where: {
             assignmentId_sentDate_channel: {
@@ -283,7 +312,6 @@ export class RemindersService {
         });
         if (existing) continue;
 
-        // SMS credit check
         if (channel === 'SMS') {
           currentNetwork = await this.prisma.network.findUnique({
             where: { id: network.id },
@@ -300,7 +328,7 @@ export class RemindersService {
               member.email,
               member.firstName,
               currentNetwork!.name,
-              feeName,
+              fee.name,
               amount,
               new Date(charge.dueDate),
               payLink,
@@ -311,16 +339,14 @@ export class RemindersService {
             const smsMessage = this.buildTonedSmsMessage(
               tone,
               member,
-              feeName,
+              fee.name,
               amount,
-              daysOverdue,
+              daysFromDue,
               penaltyPercent,
               payLink,
               friendlyExtra,
             );
             await this.sendSms(member.phone, smsMessage);
-
-            // Deduct 1 SMS credit
             await this.prisma.network.update({
               where: { id: network.id },
               data: { smsCredits: { decrement: 1 } },
@@ -329,10 +355,9 @@ export class RemindersService {
               where: { id: network.id },
             });
           } else {
-            continue; // no contact info for this channel
+            continue;
           }
 
-          // Log the reminder
           await this.prisma.reminderLog.create({
             data: {
               networkId: network.id,
@@ -350,26 +375,80 @@ export class RemindersService {
           );
         }
       }
+
+      // Advance cursor after each assignment
+      await this.prisma.network.update({
+        where: { id: network.id },
+        data: { lastProcessedId: assignment.id },
+      });
+    }
+
+    // Batch complete — if fewer than BATCH_SIZE returned we've finished this network
+    if (assignments.length < BATCH_SIZE) {
+      await this.prisma.network.update({
+        where: { id: network.id },
+        data: { lastRunAt: today, lastProcessedId: null },
+      });
+      this.logger.log(`Finished processing network: ${network.name}`);
     }
   }
 
-  // ─── Manual blast (existing, preserved) ──────────────────────────────────────
+  // ─── Reminder Rules CRUD ──────────────────────────────────────────────────────
+
+  async getRules(networkId: string) {
+    return this.prisma.reminderRule.findMany({
+      where: { networkId, isActive: true },
+      orderBy: { daysOffset: 'asc' },
+    });
+  }
+
+  async createRule(
+    networkId: string,
+    daysOffset: number,
+    channels: string[],
+  ) {
+    const existing = await this.prisma.reminderRule.findUnique({
+      where: { networkId_daysOffset: { networkId, daysOffset } },
+    });
+    if (existing) {
+      if (existing.isActive) {
+        throw new ConflictException(
+          'A reminder rule for that trigger day already exists.',
+        );
+      }
+      // Re-activate and update channels if previously soft-deleted
+      return this.prisma.reminderRule.update({
+        where: { id: existing.id },
+        data: { isActive: true, channels },
+      });
+    }
+    return this.prisma.reminderRule.create({
+      data: { networkId, daysOffset, channels },
+    });
+  }
+
+  async deleteRule(networkId: string, ruleId: string) {
+    await this.prisma.reminderRule.updateMany({
+      where: { id: ruleId, networkId },
+      data: { isActive: false },
+    });
+    return { success: true };
+  }
+
+  // ─── Manual Blast ─────────────────────────────────────────────────────────────
 
   async estimateBlast(networkId: string, channels: string[]) {
     const network = await this.prisma.network.findUnique({
       where: { id: networkId },
       select: { smsCredits: true },
     });
-
-    if (!network) {
-      throw new NotFoundException('Network not found');
-    }
+    if (!network) throw new NotFoundException('Network not found');
 
     const recipientCount = await this.prisma.charge.count({
       where: {
         networkId,
         status: { in: ['PENDING', 'OVERDUE', 'PARTIALLY_PAID'] },
-        member: { isNot: null },
+        member: { isGuest: false },
       },
     });
 
@@ -377,49 +456,43 @@ export class RemindersService {
     const creditsRequired = needsSms ? recipientCount : 0;
     const creditsAvailable = network.smsCredits;
     const canAfford = !needsSms || creditsAvailable >= creditsRequired;
+    const creditsAfter = needsSms
+      ? creditsAvailable - creditsRequired
+      : creditsAvailable;
 
-    return { recipientCount, creditsRequired, creditsAvailable, canAfford };
+    return { recipientCount, creditsRequired, creditsAvailable, creditsAfter, canAfford };
   }
 
   async blastReminders(networkId: string, dto: BlastReminderDto) {
     const network = await this.prisma.network.findUnique({
       where: { id: networkId },
     });
+    if (!network) throw new NotFoundException('Network not found');
 
-    if (!network) {
-      throw new NotFoundException('Network not found');
-    }
-
-    // Pre-check SMS credits before starting
     if (dto.channels.includes('SMS')) {
       const recipientCount = await this.prisma.charge.count({
         where: {
           networkId,
           status: { in: ['PENDING', 'OVERDUE', 'PARTIALLY_PAID'] },
-          member: { isNot: null },
+          member: { isGuest: false },
         },
       });
-
       if (network.smsCredits < recipientCount) {
         return {
           sent: 0,
           failed: 0,
           total: recipientCount,
-          reason: `Insufficient SMS credits. You need ${recipientCount} credits but have ${network.smsCredits}. Purchase more in Settings.`,
+          reason: `Insufficient SMS credits. You need ${recipientCount} but have ${network.smsCredits}. Purchase more in Settings.`,
         };
       }
     }
 
-    // Find all non-paid charges
     const overdueCharges = await this.prisma.charge.findMany({
       where: {
         networkId,
         status: { in: ['PENDING', 'OVERDUE', 'PARTIALLY_PAID'] },
       },
-      include: {
-        member: true,
-        fee: true,
-      },
+      include: { member: true, fee: true },
     });
 
     let sent = 0;
@@ -427,13 +500,10 @@ export class RemindersService {
 
     for (const charge of overdueCharges) {
       if (!charge.member) continue;
-
       for (const channel of dto.channels) {
         if (channel === 'SMS' && (charge.member as any).smsOptedOut) continue;
-
         try {
           await this.sendReminder(channel, charge, network, dto.message);
-
           await this.prisma.reminder.create({
             data: {
               networkId,
@@ -445,11 +515,11 @@ export class RemindersService {
               sentAt: new Date(),
             },
           });
-
           sent++;
         } catch (err) {
-          this.logger.error(`Failed to send reminder to ${charge.member.email}: ${err.message}`);
-
+          this.logger.error(
+            `Failed to send reminder to ${charge.member.email}: ${err.message}`,
+          );
           await this.prisma.reminder.create({
             data: {
               networkId,
@@ -460,7 +530,6 @@ export class RemindersService {
               message: dto.message,
             },
           });
-
           failed++;
         }
       }
@@ -469,18 +538,18 @@ export class RemindersService {
     return { sent, failed, total: overdueCharges.length };
   }
 
-  async sendToMember(networkId: string, memberId: string, dto: BlastReminderDto) {
+  async sendToMember(
+    networkId: string,
+    memberId: string,
+    dto: BlastReminderDto,
+  ) {
     const network = await this.prisma.network.findUnique({
       where: { id: networkId },
     });
-
     const member = await this.prisma.member.findFirst({
       where: { id: memberId, networkId },
     });
-
-    if (!member) {
-      throw new NotFoundException('Member not found');
-    }
+    if (!member) throw new NotFoundException('Member not found');
 
     const charges = await this.prisma.charge.findMany({
       where: {
@@ -491,13 +560,21 @@ export class RemindersService {
       include: { fee: true },
     });
 
-    let sent = 0;
+    this.logger.log(
+      `sendToMember: memberId=${memberId} charges=${charges.length} channels=${dto.channels.join(',')} phone=${member.phone || 'none'} email=${member.email || 'none'}`,
+    );
 
+    if (charges.length === 0) {
+      this.logger.warn(`sendToMember: no unpaid charges found for member ${memberId} — nothing to send`);
+      return { sent: 0, member: `${member.firstName} ${member.lastName}` };
+    }
+
+    let sent = 0;
     for (const charge of charges) {
       for (const channel of dto.channels) {
         try {
+          this.logger.log(`sendToMember: sending ${channel} for charge ${charge.id}`);
           await this.sendReminder(channel, { ...charge, member }, network, dto.message);
-
           await this.prisma.reminder.create({
             data: {
               networkId,
@@ -509,10 +586,10 @@ export class RemindersService {
               sentAt: new Date(),
             },
           });
-
           sent++;
+          this.logger.log(`sendToMember: ${channel} sent OK for charge ${charge.id}`);
         } catch (err) {
-          this.logger.error(err.message);
+          this.logger.error(`sendToMember: ${channel} failed for charge ${charge.id}: ${err.message}`);
         }
       }
     }
@@ -532,7 +609,7 @@ export class RemindersService {
     });
   }
 
-  // ─── Internal send helper (used by blast/sendToMember) ────────────────────────
+  // ─── Internal Helpers ─────────────────────────────────────────────────────────
 
   private async sendReminder(
     channel: string,
@@ -558,37 +635,27 @@ export class RemindersService {
     } else if (channel === 'SMS' && member.phone) {
       await this.sendSms(
         member.phone,
-        customMessage || this.buildSmsMessage(member, feeName, Number(charge.amount), paymentUrl),
+        customMessage ||
+          `Hi ${member.firstName}, your payment of NGN ${Number(charge.amount).toLocaleString()} for ${feeName} is due. Pay now: ${paymentUrl}`,
       );
     } else if (channel === 'WHATSAPP' && member.phone) {
-      // WhatsApp via Africa's Talking — same endpoint, different sender
       await this.sendSms(
         member.phone,
-        customMessage || this.buildSmsMessage(member, feeName, Number(charge.amount), paymentUrl),
+        customMessage ||
+          `Hi ${member.firstName}, your payment of NGN ${Number(charge.amount).toLocaleString()} for ${feeName} is due. Pay now: ${paymentUrl}`,
       );
     }
   }
 
-  private buildSmsMessage(
-    member: any,
-    feeName: string,
-    amount: number,
-    paymentUrl: string,
-  ): string {
-    const formattedAmount = `NGN ${amount.toLocaleString()}`;
-    return `Hi ${member.firstName}, your payment of ${formattedAmount} for ${feeName} is due. Pay now: ${paymentUrl}`;
-  }
-
   private async sendSms(phone: string, message: string) {
+    const username = this.configService.get<string>('africasTalking.username');
+    const apiKey = this.configService.get<string>('africasTalking.apiKey');
+    this.logger.log(`sendSms: to=${phone} username=${username} apiKeySet=${!!apiKey}`);
     try {
       const AfricasTalking = require('africastalking');
-      const at = AfricasTalking({
-        apiKey: this.configService.get<string>('africasTalking.apiKey'),
-        username: this.configService.get<string>('africasTalking.username'),
-      });
-
-      const sms = at.SMS;
-      await sms.send({ to: [phone], message });
+      const at = AfricasTalking({ apiKey, username });
+      const result = await at.SMS.send({ to: [phone], message });
+      this.logger.log(`sendSms: AT response=${JSON.stringify(result)}`);
     } catch (err) {
       this.logger.error(`Failed to send SMS to ${phone}: ${err.message}`);
       throw err;

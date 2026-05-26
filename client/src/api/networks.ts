@@ -10,7 +10,7 @@ export const networksApi = {
     timezone?: string
   }) => apiClient.patch('/networks/me', data).then((r) => r.data),
 
-  getPaystackStatus: () => apiClient.get('/networks/me/paystack-status').then((r) => r.data),
+  getPaystackStatus: () => apiClient.get('/networks/me/paystack-status').then((r) => r.data.data ?? r.data),
 
   setupPaystack: (data: { bankCode: string; accountNumber: string }) =>
     apiClient.post('/networks/me/setup-paystack', data).then((r) => r.data),

@@ -67,7 +67,7 @@ export class MembersController {
     @Param('networkId') networkId: string,
     @Param('id') id: string,
   ) {
-    const appUrl = this.configService.get<string>('app.frontendUrl') || 'https://collecta.africa';
+    const appUrl = this.configService.get<string>('app.frontendUrl') || 'https://collecta.services';
     return this.membersService.generateInviteLink(id, networkId, appUrl);
   }
 

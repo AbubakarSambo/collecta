@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -43,7 +44,11 @@ type SetupFormData = z.infer<typeof setupSchema>
 export function SettingsPage() {
   const { network, isLoading: networkLoading } = useNetwork()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState('network')
+  const [searchParams] = useSearchParams()
+  const initialTab = TABS.some((t) => t.id === searchParams.get('tab'))
+    ? searchParams.get('tab')!
+    : 'network'
+  const [activeTab, setActiveTab] = useState(initialTab)
   const [verifiedName, setVerifiedName] = useState<string | null>(null)
 
   const networkForm = useForm({
@@ -372,7 +377,7 @@ export function SettingsPage() {
                     </div>
                   )}
 
-                  <div className="pt-2">
+                  <div className="pt-2 space-y-2">
                     <Button
                       type="submit"
                       disabled={!verifiedName}
@@ -380,6 +385,11 @@ export function SettingsPage() {
                     >
                       Connect Account
                     </Button>
+                    {!verifiedName && (
+                      <p className="text-xs text-gray-400">
+                        Enter your account number and click Verify before connecting.
+                      </p>
+                    )}
                   </div>
                 </form>
               </CardContent>
@@ -403,7 +413,7 @@ export function SettingsPage() {
             </Card>
           )}
 
-          {network?.verificationStatus === 'PENDING' && (
+          {network?.verificationStatus === 'PENDING' && network?.hasSubmittedVerification && (
             <Card className="border-amber-200 bg-amber-50">
               <CardContent className="p-4 flex items-center gap-3">
                 <Clock className="h-6 w-6 text-amber-600 shrink-0" />
@@ -422,7 +432,7 @@ export function SettingsPage() {
                 <div>
                   <p className="font-semibold text-red-900">Verification rejected</p>
                   <p className="text-sm text-red-700">
-                    {network?.verificationNotes || 'Please contact support@collecta.africa for details.'}
+                    {network?.verificationNotes || 'Please contact support@collecta.services for details.'}
                   </p>
                 </div>
               </CardContent>

@@ -7,8 +7,8 @@ const SECTIONS = [
   { title: 'Fees and Charges', body: 'A service charge is applied to each online payment (₦200 base + 2% of amount, capped at ₦3,000). The organisation always receives exactly the amount they set.' },
   { title: 'Verification', body: 'Organisations must be reviewed and approved by Collecta before their portal is activated. Verification involves identity and registration checks.' },
   { title: 'Prohibited Uses', body: 'You may not use Collecta for fraud, money laundering, or any activity that violates applicable law. See our Acceptable Use Policy for details.' },
-  { title: 'Disputes', body: 'Payment disputes should be raised with the collecting organisation in the first instance. For platform-level issues, contact support@collecta.africa.' },
-  { title: 'Contact', body: 'Collecta — support@collecta.africa' },
+  { title: 'Disputes', body: 'Payment disputes should be raised with the collecting organisation in the first instance. For platform-level issues, contact support@collecta.services.' },
+  { title: 'Contact', body: 'Collecta — support@collecta.services' },
 ]
 
 export function TermsPage() {

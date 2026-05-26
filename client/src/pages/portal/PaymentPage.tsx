@@ -143,6 +143,17 @@ export function PaymentPage() {
                 <span className="text-gray-500">Payment via</span>
                 <span className="font-medium">Paystack (secure)</span>
               </div>
+              {data.network?.bankAccountName && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Paid to</span>
+                  <span className="font-medium text-right">
+                    {data.network.bankAccountName}
+                    {data.network.settlementBank && (
+                      <span className="block text-xs text-gray-400">{data.network.settlementBank}</span>
+                    )}
+                  </span>
+                </div>
+              )}
             </div>
 
             {data.network?.isVerified && (

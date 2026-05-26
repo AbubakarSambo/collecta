@@ -9,6 +9,8 @@ import {
   BadRequestException,
   ForbiddenException,
   Req,
+  ParseIntPipe,
+  DefaultValuePipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { NetworksService } from './networks.service';
@@ -131,5 +133,51 @@ export class NetworksController {
   @ApiOperation({ summary: 'Get network by slug (public — for member portal)' })
   async getBySlug(@Param('slug') slug: string) {
     return this.networksService.findBySlug(slug);
+  }
+
+  // --- Platform admin: monitoring & management ---
+
+  @Get('admin/monitoring')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get post-approval monitoring signals (platform admin only)' })
+  async getMonitoringSignals(@Req() req: Request & { user: CurrentUserData }) {
+    if (!(req as any).user?.isPlatformAdmin) {
+      throw new ForbiddenException('Platform admin access required');
+    }
+    return this.networksService.getMonitoringSignals();
+  }
+
+  @Get('admin/stats')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get platform-wide stats (platform admin only)' })
+  async getPlatformStats(@Req() req: Request & { user: CurrentUserData }) {
+    if (!(req as any).user?.isPlatformAdmin) {
+      throw new ForbiddenException('Platform admin access required');
+    }
+    return this.networksService.getPlatformStats();
+  }
+
+  @Get('admin/all')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List all networks (platform admin only)' })
+  async getAllNetworks(
+    @Req() req: Request & { user: CurrentUserData },
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('search') search?: string,
+  ) {
+    if (!(req as any).user?.isPlatformAdmin) {
+      throw new ForbiddenException('Platform admin access required');
+    }
+    return this.networksService.getAllNetworks(page, search);
+  }
+
+  @Get('admin/verifications')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List pending verification requests (platform admin only)' })
+  async getPendingVerifications(@Req() req: Request & { user: CurrentUserData }) {
+    if (!(req as any).user?.isPlatformAdmin) {
+      throw new ForbiddenException('Platform admin access required');
+    }
+    return this.networksService.getPendingVerifications();
   }
 }

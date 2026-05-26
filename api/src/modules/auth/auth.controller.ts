@@ -1,4 +1,5 @@
-import { Controller, Post, Get, Body, Query, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, HttpCode, HttpStatus, Headers, ForbiddenException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
@@ -8,7 +9,10 @@ import { Public, CurrentUser, CurrentUserData } from '../../common';
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Public()
   @Post('register')
@@ -67,5 +71,20 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getProfile(@CurrentUser() user: CurrentUserData) {
     return this.authService.getProfile(user.id);
+  }
+
+  @Public()
+  @Post('admin/bootstrap')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'One-time platform super-admin setup (requires BOOTSTRAP_SECRET header)' })
+  async bootstrap(
+    @Body() body: { email: string; password: string; firstName: string; lastName: string },
+    @Headers('x-bootstrap-secret') secret: string,
+  ) {
+    const expected = this.configService.get<string>('app.bootstrapSecret');
+    if (!expected || secret !== expected) {
+      throw new ForbiddenException('Invalid bootstrap secret');
+    }
+    return this.authService.bootstrapPlatformAdmin(body);
   }
 }

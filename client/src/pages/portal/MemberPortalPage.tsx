@@ -204,7 +204,7 @@ export function MemberPortalPage() {
     )
   }
 
-  // Portal not yet live — network pending verification
+  // Portal not yet live
   if (data.comingSoon) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
@@ -213,7 +213,9 @@ export function MemberPortalPage() {
         </div>
         <h2 className="text-2xl font-bold text-gray-900">{data.network.name}</h2>
         <p className="text-gray-500 max-w-sm">
-          This network is setting up their payment portal. Check back soon.
+          {data.reason === 'no_bank_account'
+            ? 'This organisation is almost ready — they need to connect a bank account before payments can be accepted. Contact the admin.'
+            : 'This network is setting up their payment portal. Check back soon.'}
         </p>
         <p className="text-xs text-gray-400">Powered by Collecta</p>
       </div>

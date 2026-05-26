@@ -12,7 +12,7 @@ export class EmailService {
   constructor(private configService: ConfigService) {
     this.resend = new Resend(this.configService.get<string>('resend.apiKey'));
     this.fromEmail =
-      this.configService.get<string>('resend.fromEmail') || 'Collecta <noreply@collecta.africa>';
+      this.configService.get<string>('resend.fromEmail') || 'Collecta <noreply@collecta.services>';
     this.frontendUrl =
       this.configService.get<string>('resend.frontendUrl') || 'http://localhost:5173';
   }
@@ -406,7 +406,7 @@ export class EmailService {
             <p style="margin: 0; font-size: 14px;">${smsTemplate}</p>
           </div>
 
-          <p style="color: #6b7280; font-size: 12px; margin-top: 24px;">Collecta — collecta.africa</p>
+          <p style="color: #6b7280; font-size: 12px; margin-top: 24px;">Collecta — collecta.services</p>
         </div>
       `,
     });

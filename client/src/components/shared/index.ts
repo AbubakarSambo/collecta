@@ -1,5 +1,6 @@
 export * from './ProtectedRoute'
 export * from './GuestRoute'
+export * from './AdminRoute'
 export * from './PageHeader'
 export * from './StatsCard'
 export * from './EmptyState'

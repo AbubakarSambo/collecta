@@ -1,8 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
-import { AppLayout } from '@/components/layout'
+import { AppLayout, AdminLayout } from '@/components/layout'
 import { PortalLayout } from '@/components/layout'
-import { ProtectedRoute, GuestRoute } from '@/components/shared'
+import { ProtectedRoute, GuestRoute, AdminRoute } from '@/components/shared'
 
 // Auth pages
 import { LoginPage } from '@/pages/auth/LoginPage'
@@ -31,6 +31,12 @@ import { PaymentPage } from '@/pages/portal/PaymentPage'
 import { PaymentCallbackPage } from '@/pages/portal/PaymentCallbackPage'
 import { PaymentHistoryPage } from '@/pages/portal/PaymentHistoryPage'
 import { VerificationInfoPage } from '@/pages/portal/VerificationInfoPage'
+
+// Admin pages
+import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage'
+import { AdminVerificationsPage } from '@/pages/admin/AdminVerificationsPage'
+import { AdminNetworksPage } from '@/pages/admin/AdminNetworksPage'
+import { AdminMonitoringPage } from '@/pages/admin/AdminMonitoringPage'
 
 // Legal pages (public)
 import { TermsPage } from '@/pages/legal/TermsPage'
@@ -87,6 +93,16 @@ function App() {
             <Route path="/reminders" element={<RemindersPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+          </Route>
+        </Route>
+
+        {/* Platform admin routes */}
+        <Route element={<AdminRoute />}>
+          <Route element={<AdminLayout />}>
+            <Route path="/admin" element={<AdminDashboardPage />} />
+            <Route path="/admin/verifications" element={<AdminVerificationsPage />} />
+            <Route path="/admin/networks" element={<AdminNetworksPage />} />
+            <Route path="/admin/monitoring" element={<AdminMonitoringPage />} />
           </Route>
         </Route>
 

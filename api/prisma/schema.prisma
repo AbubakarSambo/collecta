@@ -58,6 +58,8 @@ model Network {
   country                String             @default("NG")
   timezone               String             @default("Africa/Lagos")
   isActive               Boolean            @default(true)
+  lastRunAt              DateTime?
+  lastProcessedId        String?
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
   auditLogs              AuditLog[]
@@ -68,6 +70,7 @@ model Network {
   payments               Payment[]
   reminders              Reminder[]
   reminderLogs           ReminderLog[]
+  reminderRules          ReminderRule[]
   verificationRequest    VerificationRequest?
   importJobs             ImportJob[]
 }
@@ -263,6 +266,19 @@ model AuditLog {
   metadata   Json?
   createdAt  DateTime @default(now())
   network    Network  @relation(fields: [networkId], references: [id])
+}
+
+model ReminderRule {
+  id         String   @id @default(uuid())
+  networkId  String
+  daysOffset Int
+  channels   String[]
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  network    Network  @relation(fields: [networkId], references: [id], onDelete: Cascade)
+
+  @@unique([networkId, daysOffset])
 }
 
 // ─── Enums ───────────────────────────────────────────────────────────────────

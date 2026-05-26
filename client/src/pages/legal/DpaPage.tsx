@@ -7,7 +7,7 @@ const SECTIONS = [
   { title: 'Sub-processors', body: 'Collecta uses Paystack (payment processing), Africa\'s Talking (SMS delivery), and SendGrid (email delivery) as sub-processors. All are bound by data processing agreements.' },
   { title: 'Data transfers', body: 'Data is stored in Supabase (managed PostgreSQL) in a jurisdiction with adequate data protection standards. Cross-border transfers comply with applicable regulations.' },
   { title: 'Breach notification', body: 'Collecta will notify the organisation within 72 hours of becoming aware of a personal data breach affecting the organisation\'s member data.' },
-  { title: 'Contact', body: 'For DPA questions: support@collecta.africa' },
+  { title: 'Contact', body: 'For DPA questions: support@collecta.services' },
 ]
 
 export function DpaPage() {

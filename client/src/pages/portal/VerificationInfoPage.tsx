@@ -57,8 +57,8 @@ export function VerificationInfoPage() {
 
       <p className="text-center text-xs text-gray-400">
         Questions? Contact{' '}
-        <a href="mailto:support@collecta.africa" className="underline">
-          support@collecta.africa
+        <a href="mailto:support@collecta.services" className="underline">
+          support@collecta.services
         </a>
       </p>
     </div>
