@@ -117,6 +117,7 @@ export class EmailService {
     dueDate: Date,
     paymentUrl: string,
     customMessage?: string,
+    tone: 'FRIENDLY' | 'CLEAR' | 'FIRM' | 'FORMAL' = 'CLEAR',
   ): Promise<void> {
     const formattedAmount = new Intl.NumberFormat('en-NG', {
       style: 'currency',
@@ -129,22 +130,60 @@ export class EmailService {
       year: 'numeric',
     });
 
+    const toneConfig: Record<string, { subject: string; greeting: string; ctaColor: string }> = {
+      FRIENDLY: {
+        subject: `Reminder: ${feeName} is due soon`,
+        greeting: `Hi ${firstName},`,
+        ctaColor: '#16a34a',
+      },
+      CLEAR: {
+        subject: `${feeName} — ${formattedAmount} due today`,
+        greeting: `Hi ${firstName},`,
+        ctaColor: '#2563eb',
+      },
+      FIRM: {
+        subject: `Action required: ${feeName} is overdue`,
+        greeting: `${firstName},`,
+        ctaColor: '#d97706',
+      },
+      FORMAL: {
+        subject: `Overdue notice: ${feeName} — ${formattedAmount}`,
+        greeting: `${firstName},`,
+        ctaColor: '#dc2626',
+      },
+    };
+
+    const toneBody: Record<string, string> = {
+      FRIENDLY: customMessage
+        ? `<p>${customMessage}</p>`
+        : `<p>Your payment for <strong>${feeName}</strong> is coming up. Pay at your convenience before the due date to stay current.</p>`,
+      CLEAR: customMessage
+        ? `<p>${customMessage}</p>`
+        : `<p>Your payment for <strong>${feeName}</strong> of ${formattedAmount} is due today.</p>`,
+      FIRM: customMessage
+        ? `<p>${customMessage}</p>`
+        : `<p>Your payment for <strong>${feeName}</strong> of ${formattedAmount} is now overdue. Please settle this as soon as possible.</p>`,
+      FORMAL: customMessage
+        ? `<p>${customMessage}</p>`
+        : `<p>Your payment for <strong>${feeName}</strong> of ${formattedAmount} remains outstanding. Continued non-payment may affect your access. Please settle this immediately.</p>`,
+    };
+
+    const cfg = toneConfig[tone] || toneConfig['CLEAR'];
+
     await this.sendEmail({
       to: email,
-      subject: `Payment reminder: ${feeName} — ${formattedAmount} due`,
+      subject: cfg.subject,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Payment Reminder</h2>
-          <p>Hi ${firstName},</p>
-          ${customMessage ? `<p>${customMessage}</p>` : ''}
-          <p>This is a reminder that your payment for <strong>${feeName}</strong> is due.</p>
+          <p>${cfg.greeting}</p>
+          ${toneBody[tone] || toneBody['CLEAR']}
           <table style="border-collapse: collapse; width: 100%; margin: 16px 0;">
             <tr>
               <td style="padding: 8px; border: 1px solid #e5e7eb;">Fee</td>
               <td style="padding: 8px; border: 1px solid #e5e7eb;"><strong>${feeName}</strong></td>
             </tr>
             <tr>
-              <td style="padding: 8px; border: 1px solid #e5e7eb;">Amount Due</td>
+              <td style="padding: 8px; border: 1px solid #e5e7eb;">Amount</td>
               <td style="padding: 8px; border: 1px solid #e5e7eb;"><strong>${formattedAmount}</strong></td>
             </tr>
             <tr>
@@ -154,8 +193,8 @@ export class EmailService {
           </table>
           <div style="margin: 32px 0;">
             <a href="${paymentUrl}"
-               style="display: inline-block; background: #16a34a; color: white; padding: 12px 24px;
-                      text-decoration: none; border-radius: 6px;">
+               style="display: inline-block; background: ${cfg.ctaColor}; color: white; padding: 12px 24px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600;">
               Pay Now
             </a>
           </div>

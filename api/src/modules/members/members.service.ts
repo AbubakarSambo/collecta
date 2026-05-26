@@ -14,14 +14,25 @@ import { randomUUID } from 'crypto';
 export class MembersService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(networkId: string, pagination: PaginationDto & { search?: string; status?: string }) {
-    const { page = 1, limit = 20, search, status } = pagination;
+  async findAll(networkId: string, pagination: PaginationDto & { search?: string; status?: string; ghost?: boolean }) {
+    const { page = 1, limit = 20, search, status, ghost } = pagination;
     const skip = (page - 1) * limit;
 
     const where: any = { networkId };
 
     if (status) {
       where.status = status;
+    }
+
+    if (ghost === true) {
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      where.status = 'ACTIVE';
+      where.joinedAt = { lte: ninetyDaysAgo };
+      where.AND = [
+        { charges: { some: {} } },
+        { charges: { none: { status: 'PAID' } } },
+      ];
     }
 
     if (search) {
@@ -299,7 +310,7 @@ export class MembersService {
 
     return {
       inviteToken: token,
-      inviteUrl: `${appUrl}/n/${member.network.slug}/join/${token}`,
+      inviteUrl: `${appUrl}/pay/${member.network.slug}/join/${token}`,
     };
   }
 }

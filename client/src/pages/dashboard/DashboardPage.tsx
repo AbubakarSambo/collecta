@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Users, TrendingUp, AlertTriangle, Clock, Send, UserPlus, PartyPopper, Copy, Check } from 'lucide-react'
+import { Users, TrendingUp, AlertTriangle, Clock, Send, UserPlus, PartyPopper, Copy, Check, ChevronDown, ChevronUp, MessageSquare, UserX } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { chargesApi } from '@/api/charges'
@@ -31,20 +31,37 @@ export function DashboardPage() {
   const [onboardingDismissed, setOnboardingDismissed] = useState(
     () => !!localStorage.getItem(ONBOARDING_DISMISSED_KEY),
   )
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState<string | null>(null)
+  const [templatesOpen, setTemplatesOpen] = useState(false)
 
   const dismissOnboarding = () => {
     localStorage.setItem(ONBOARDING_DISMISSED_KEY, '1')
     setOnboardingDismissed(true)
   }
 
-  const copyPortalLink = () => {
-    if (network?.slug) {
-      navigator.clipboard.writeText(`${window.location.origin}/n/${network.slug}`)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
+  const copyText = (text: string, key: string) => {
+    navigator.clipboard.writeText(text)
+    setCopied(key)
+    setTimeout(() => setCopied(null), 2000)
   }
+
+  const portalLink = `${window.location.origin}/pay/${network?.slug}`
+
+  const memberNoun: Record<string, string> = {
+    ESTATE: 'residents',
+    CHAMA: 'members',
+    SUPPLIER: 'clients',
+    DEBT: 'borrowers',
+  }
+  const noun = memberNoun[network?.networkType || ''] || 'members'
+
+  const whatsappTemplate = network
+    ? `Hi! ${network.name} now uses Collecta to manage payments. You can view your charges and pay online here: ${portalLink}\n\nNo login needed — just visit the link. Your receipts are digital and permanent.`
+    : ''
+
+  const smsTemplate = network
+    ? `${network.name}: Pay dues online at ${portalLink}. View charges, pay securely, get instant receipt.`
+    : ''
 
   const { data: summaryRes, isLoading: summaryLoading } = useQuery({
     queryKey: ['charges', 'summary', networkId],
@@ -85,31 +102,72 @@ export function DashboardPage() {
               <PartyPopper className="h-5 w-5 text-green-700 shrink-0" />
               <p className="text-sm font-semibold text-green-900">Your portal is live!</p>
             </div>
-            <button
-              onClick={dismissOnboarding}
-              className="text-xs text-green-600 hover:underline shrink-0"
-            >
+            <button onClick={dismissOnboarding} className="text-xs text-green-600 hover:underline shrink-0">
               Dismiss
             </button>
           </div>
+
           <p className="text-sm text-green-800">
-            Share your portal link with your members so they can view charges and pay online:
+            Share this link with your {noun} so they can view charges and pay online:
           </p>
+
           <div className="flex items-center gap-2">
             <code className="flex-1 rounded bg-white border border-green-200 px-3 py-2 text-xs font-mono text-gray-700 truncate">
-              {window.location.origin}/n/{network?.slug}
+              {portalLink}
             </code>
             <button
-              onClick={copyPortalLink}
-              className="flex items-center gap-1 rounded border border-green-300 bg-white px-3 py-2 text-xs font-medium text-green-700 hover:bg-green-50"
+              onClick={() => copyText(portalLink, 'link')}
+              className="flex items-center gap-1 rounded border border-green-300 bg-white px-3 py-2 text-xs font-medium text-green-700 hover:bg-green-50 shrink-0"
             >
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              {copied ? 'Copied' : 'Copy'}
+              {copied === 'link' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied === 'link' ? 'Copied' : 'Copy link'}
             </button>
           </div>
-          <p className="text-xs text-green-700">
-            Check your email for copy-paste WhatsApp and SMS message templates.
-          </p>
+
+          {/* Message templates */}
+          <button
+            onClick={() => setTemplatesOpen((o) => !o)}
+            className="flex items-center gap-1.5 text-xs font-medium text-green-700 hover:text-green-900"
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+            Copy-paste message templates for WhatsApp & SMS
+            {templatesOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          </button>
+
+          {templatesOpen && (
+            <div className="space-y-3 pt-1">
+              {/* WhatsApp template */}
+              <div className="rounded-lg bg-white border border-green-200 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">WhatsApp</span>
+                  <button
+                    onClick={() => copyText(whatsappTemplate, 'whatsapp')}
+                    className="flex items-center gap-1 text-xs text-green-700 hover:text-green-900 font-medium"
+                  >
+                    {copied === 'whatsapp' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                    {copied === 'whatsapp' ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{whatsappTemplate}</p>
+              </div>
+
+              {/* SMS template */}
+              <div className="rounded-lg bg-white border border-green-200 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">SMS</span>
+                  <button
+                    onClick={() => copyText(smsTemplate, 'sms')}
+                    className="flex items-center gap-1 text-xs text-green-700 hover:text-green-900 font-medium"
+                  >
+                    {copied === 'sms' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                    {copied === 'sms' ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-700">{smsTemplate}</p>
+                <p className="text-xs text-gray-400 mt-1">{smsTemplate.length}/160 characters</p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -183,6 +241,16 @@ export function DashboardPage() {
           iconBg="bg-red-100"
           description={`${summary?.overdueChargesCount || 0} charges`}
         />
+        {(summary?.ghostMemberCount || 0) > 0 && (
+          <StatsCard
+            title="Ghost Members"
+            value={summary?.ghostMemberCount || 0}
+            icon={UserX}
+            iconColor="text-gray-500"
+            iconBg="bg-gray-100"
+            description="Active, assigned, never paid"
+          />
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

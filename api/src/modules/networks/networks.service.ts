@@ -190,7 +190,7 @@ export class NetworksService {
 
     // Send onboarding templates email to admin
     if (network.admin?.email) {
-      const portalUrl = `${process.env.FRONTEND_URL || 'https://collecta.africa'}/n/${network.slug}`;
+      const portalUrl = `${process.env.FRONTEND_URL || 'https://collecta.africa'}/pay/${network.slug}`;
       this.emailService
         .sendOnboardingTemplates(
           network.admin.email,

@@ -1,13 +1,24 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CheckCircle, XCircle, Trophy, Star } from 'lucide-react'
+import { CheckCircle, XCircle, Trophy, Star, Mail } from 'lucide-react'
 import { Spinner } from '@/components/ui/Spinner'
-import { cn } from '@/lib/utils'
+import { cn, formatCurrency } from '@/lib/utils'
 import apiClient from '@/api/client'
 
 interface TierTag {
   tier: 'TOP' | 'SECOND' | null
   label: string | null
+}
+
+interface PaymentResult {
+  status: string
+  alreadyRecorded?: boolean
+  tierTag?: TierTag | null
+  feeName?: string
+  amount?: number
+  networkName?: string
+  memberName?: string
+  paidAt?: string
 }
 
 function TierBadge({ tierTag }: { tierTag: TierTag | null }) {
@@ -31,7 +42,7 @@ export function PaymentCallbackPage() {
   const [searchParams] = useSearchParams()
   const reference = searchParams.get('reference') || searchParams.get('trxref')
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
-  const [tierTag, setTierTag] = useState<TierTag | null>(null)
+  const [result, setResult] = useState<PaymentResult | null>(null)
 
   useEffect(() => {
     if (!reference) {
@@ -45,7 +56,7 @@ export function PaymentCallbackPage() {
         const data = res.data?.data ?? res.data
         if (data?.status === 'success' || data?.alreadyRecorded) {
           setStatus('success')
-          if (data.tierTag) setTierTag(data.tierTag)
+          setResult(data)
         } else {
           setStatus('error')
         }
@@ -55,7 +66,7 @@ export function PaymentCallbackPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <div className="max-w-md text-center">
+      <div className="max-w-md w-full text-center">
         {status === 'loading' && (
           <>
             <Spinner size="lg" className="mx-auto mb-4" />
@@ -67,12 +78,43 @@ export function PaymentCallbackPage() {
         {status === 'success' && (
           <>
             <CheckCircle className="mx-auto mb-4 h-16 w-16 text-green-500" />
-            <h1 className="text-2xl font-bold text-gray-900">Payment Successful!</h1>
-            <p className="mt-2 text-gray-500">
-              Your payment has been received and recorded. Thank you!
-            </p>
-            <p className="mt-2 text-xs text-gray-400">Reference: {reference}</p>
-            <TierBadge tierTag={tierTag} />
+            <h1 className="text-2xl font-bold text-gray-900">Payment Confirmed</h1>
+            {result?.networkName && (
+              <p className="mt-1 text-gray-500">{result.networkName}</p>
+            )}
+
+            {/* Receipt details */}
+            <div className="mt-5 rounded-lg border bg-white p-4 text-left space-y-2 text-sm">
+              {result?.memberName && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Member</span>
+                  <span className="font-medium">{result.memberName}</span>
+                </div>
+              )}
+              {result?.feeName && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Fee</span>
+                  <span className="font-medium">{result.feeName}</span>
+                </div>
+              )}
+              {result?.amount !== undefined && (
+                <div className="flex justify-between border-t pt-2">
+                  <span className="font-semibold text-gray-700">Amount paid</span>
+                  <span className="font-bold text-green-700">{formatCurrency(result.amount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-xs text-gray-400 border-t pt-2">
+                <span>Reference</span>
+                <span className="font-mono">{reference}</span>
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-gray-500">
+              <Mail className="h-3.5 w-3.5" />
+              A receipt has been sent to your email address.
+            </div>
+
+            <TierBadge tierTag={result?.tierTag ?? null} />
           </>
         )}
 
@@ -81,8 +123,13 @@ export function PaymentCallbackPage() {
             <XCircle className="mx-auto mb-4 h-16 w-16 text-red-500" />
             <h1 className="text-2xl font-bold text-gray-900">Payment Status Unknown</h1>
             <p className="mt-2 text-gray-500">
-              We could not confirm your payment. Please contact the network admin if funds were deducted.
+              We could not confirm your payment. If funds were deducted, please save your reference number and contact the network admin.
             </p>
+            {reference && (
+              <p className="mt-3 text-sm font-mono bg-gray-100 rounded px-3 py-2 inline-block">
+                {reference}
+              </p>
+            )}
           </>
         )}
       </div>

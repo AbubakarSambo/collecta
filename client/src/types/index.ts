@@ -63,6 +63,8 @@ export interface Member {
   memberCode?: string
   unit?: string
   status: MemberStatus
+  smsOptedOut?: boolean
+  consecutiveMonthsPaid?: number
   inviteToken?: string
   joinedAt: string
   createdAt: string

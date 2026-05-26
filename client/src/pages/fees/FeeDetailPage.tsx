@@ -97,10 +97,46 @@ export function FeeDetailPage() {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-gray-500">Due Day</p>
-            <p className="text-2xl font-bold">{fee.dueDay}</p>
+            <p className="text-2xl font-bold">{fee.dueDay ?? '—'}</p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Penalty config card */}
+      {fee.type === 'ASSIGNED' && (
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-gray-500 mb-2">Late Payment Penalty</p>
+            {fee.penaltyEnabled ? (
+              <div className="flex items-center gap-4 text-sm">
+                <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2.5 py-1 text-xs font-medium text-orange-700">
+                  {fee.penaltyPercent}% penalty
+                </span>
+                <span className="text-gray-600">Grace period: {fee.penaltyGraceDays ?? 7} days</span>
+                <span className="text-gray-400 text-xs">Applied after {fee.penaltyGraceDays ?? 7} days overdue</span>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">No penalty configured</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Options card (OPEN fees) */}
+      {fee.type === 'OPEN' && Array.isArray(fee.options) && fee.options.length > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-gray-500 mb-2">Payment Options</p>
+            <div className="flex flex-wrap gap-2">
+              {fee.options.map((opt: { name: string; amount: number }, i: number) => (
+                <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700">
+                  {opt.name} — {formatCurrency(opt.amount)}
+                </span>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

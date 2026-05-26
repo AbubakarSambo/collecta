@@ -99,11 +99,15 @@ export class ChargesService {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
     const [
       totalMembers,
       pendingCharges,
       overdueCharges,
       collectedThisMonth,
+      ghostMemberCount,
     ] = await Promise.all([
       this.prisma.member.count({ where: { networkId, status: 'ACTIVE' } }),
       this.prisma.charge.aggregate({
@@ -123,6 +127,17 @@ export class ChargesService {
         },
         _sum: { amount: true },
       }),
+      this.prisma.member.count({
+        where: {
+          networkId,
+          status: 'ACTIVE',
+          joinedAt: { lte: ninetyDaysAgo },
+          AND: [
+            { charges: { some: {} } },
+            { charges: { none: { status: 'PAID' } } },
+          ],
+        },
+      }),
     ]);
 
     return {
@@ -132,6 +147,7 @@ export class ChargesService {
       overdueChargesAmount: overdueCharges._sum.amount || 0,
       overdueChargesCount: overdueCharges._count,
       collectedThisMonth: collectedThisMonth._sum.amount || 0,
+      ghostMemberCount,
     };
   }
 

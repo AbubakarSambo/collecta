@@ -260,7 +260,7 @@ export class RemindersService {
       const feeName = fee.name;
       const amount = Number(assignment.amount ?? fee.amount);
       const penaltyPercent = Number(fee.penaltyPercent ?? 0);
-      const payLink = `${this.frontendUrl}/n/${currentNetwork!.slug}/pay/${charge.id}`;
+      const payLink = `${this.frontendUrl}/pay/${currentNetwork!.slug}/pay/${charge.id}`;
 
       // Streak message (only FRIENDLY, social proof takes priority)
       const streakMsg = this.getStreakMessage(member.consecutiveMonthsPaid);
@@ -304,6 +304,8 @@ export class RemindersService {
               amount,
               new Date(charge.dueDate),
               payLink,
+              friendlyExtra,
+              tone as 'FRIENDLY' | 'CLEAR' | 'FIRM' | 'FORMAL',
             );
           } else if (channel === 'SMS' && member.phone) {
             const smsMessage = this.buildTonedSmsMessage(
@@ -540,7 +542,7 @@ export class RemindersService {
   ) {
     const member = charge.member;
     const feeName = charge.fee?.name || charge.description || 'Payment Due';
-    const paymentUrl = `${this.frontendUrl}/n/${network.slug}/pay/${charge.id}`;
+    const paymentUrl = `${this.frontendUrl}/pay/${network.slug}/pay/${charge.id}`;
 
     if (channel === 'EMAIL' && member.email) {
       await this.emailService.sendFeeReminderEmail(

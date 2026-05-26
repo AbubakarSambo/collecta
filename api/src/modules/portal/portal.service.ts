@@ -167,7 +167,7 @@ export class PortalService {
   async getCharge(slug: string, chargeId: string) {
     const network = await this.prisma.network.findUnique({
       where: { slug: slug.toLowerCase() },
-      select: { id: true, name: true, isVerified: true },
+      select: { id: true, name: true, isVerified: true, country: true },
     });
 
     if (!network) {
@@ -197,11 +197,16 @@ export class PortalService {
       memberName: charge.member
         ? `${charge.member.firstName} ${charge.member.lastName}`
         : null,
-      network: { name: network.name, isVerified: network.isVerified },
+      network: {
+        name: network.name,
+        isVerified: network.isVerified,
+        country: network.country || 'NG',
+        kenyaEnabled: this.configService.get<boolean>('app.kenyaEnabled') || false,
+      },
     };
   }
 
-  async initiatePayment(slug: string, chargeId: string, requestedAmount?: number) {
+  async initiatePayment(slug: string, chargeId: string, requestedAmount?: number, paymentMethod?: 'card' | 'bank_transfer' | 'ussd' | 'mobile_money') {
     const network = await this.prisma.network.findUnique({
       where: { slug: slug.toLowerCase() },
     });
@@ -255,6 +260,9 @@ export class PortalService {
         paystackSubaccountCode: network.paystackSubaccountCode,
         name: network.name,
       },
+      channels: paymentMethod && paymentMethod !== 'card'
+        ? [paymentMethod === 'mobile_money' ? 'mobile_money' : paymentMethod]
+        : undefined,
     });
 
     await this.prisma.charge.update({
@@ -364,8 +372,8 @@ export class PortalService {
     const existing = await this.prisma.payment.findFirst({
       where: { paystackReference: reference },
       include: {
-        charge: { include: { fee: true } },
-        member: { select: { consecutiveMonthsPaid: true } },
+        charge: { include: { fee: true, network: { select: { name: true } } } },
+        member: { select: { consecutiveMonthsPaid: true, firstName: true, lastName: true } },
       },
     });
 
@@ -374,6 +382,12 @@ export class PortalService {
         status: existing.charge.status,
         alreadyRecorded: true,
         tierTag: this.getTierTag(existing.member?.consecutiveMonthsPaid ?? 0),
+        feeName: existing.charge.fee?.name || existing.charge.description || 'Payment',
+        amount: Number(existing.amount),
+        networkName: existing.charge.network?.name,
+        memberName: existing.member
+          ? `${existing.member.firstName} ${existing.member.lastName}`
+          : undefined,
       };
     }
 
@@ -428,7 +442,7 @@ export class PortalService {
 
     if (charge.member.email) {
       const frontendUrl = this.configService.get<string>('app.frontendUrl') || 'http://localhost:5173';
-      const profileUrl = `${frontendUrl}/n/${charge.network.slug}/profile/${charge.member.id}`;
+      const profileUrl = `${frontendUrl}/pay/${charge.network.slug}/profile/${charge.member.id}`;
       const feeName = charge.fee?.name || charge.description || 'Payment';
 
       this.emailService
@@ -449,9 +463,16 @@ export class PortalService {
       select: { consecutiveMonthsPaid: true },
     });
 
+    const feeName = charge.fee?.name || charge.description || 'Payment';
+    const memberName = `${charge.member.firstName} ${charge.member.lastName}`;
+
     return {
       status: 'success',
       tierTag: this.getTierTag(updatedMember?.consecutiveMonthsPaid ?? 0),
+      feeName,
+      amount,
+      networkName: charge.network.name,
+      memberName,
     };
   }
 

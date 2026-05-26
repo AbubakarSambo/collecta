@@ -10,8 +10,11 @@ export const portalApi = {
   getCharge: (slug: string, chargeId: string) =>
     apiClient.get(`/portal/${slug}/charge/${chargeId}`).then((r) => r.data),
 
-  initiatePayment: (slug: string, chargeId: string, amount?: number) =>
-    apiClient.post(`/portal/${slug}/pay/${chargeId}`, amount ? { amount } : {}).then((r) => r.data),
+  initiatePayment: (slug: string, chargeId: string, amount?: number, paymentMethod?: 'card' | 'bank_transfer' | 'ussd' | 'mobile_money') =>
+    apiClient.post(`/portal/${slug}/pay/${chargeId}`, {
+      ...(amount ? { amount } : {}),
+      ...(paymentMethod ? { paymentMethod } : {}),
+    }).then((r) => r.data),
 
   getMemberByInvite: (slug: string, token: string) =>
     apiClient.get(`/portal/${slug}/join/${token}`).then((r) => r.data),

@@ -77,7 +77,16 @@ export function ChargesPage() {
     {
       key: 'amount',
       header: 'Amount',
-      render: (row) => <span className="font-semibold">{formatCurrency(Number(row.amount))}</span>,
+      render: (row) => (
+        <div>
+          <span className="font-semibold">{formatCurrency(Number(row.amount))}</span>
+          {(row as any).penaltyApplied && (row as any).penaltyAmount > 0 && (
+            <p className="text-xs text-orange-600 mt-0.5">
+              +{formatCurrency(Number((row as any).penaltyAmount))} penalty
+            </p>
+          )}
+        </div>
+      ),
     },
     {
       key: 'dueDate',

@@ -59,8 +59,19 @@ export class PaymentsController {
   @Public()
   @Post('webhooks/paystack')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Paystack webhook receiver' })
+  @ApiOperation({ summary: 'Paystack webhook receiver (Nigeria)' })
   async handleWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Headers('x-paystack-signature') signature: string,
+  ) {
+    return this.paymentsService.handlePaystackWebhook(req.rawBody!, signature);
+  }
+
+  @Public()
+  @Post('webhooks/paystack/ke')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Paystack webhook receiver (Kenya — same handler, separate endpoint for routing clarity)' })
+  async handleWebhookKe(
     @Req() req: RawBodyRequest<Request>,
     @Headers('x-paystack-signature') signature: string,
   ) {

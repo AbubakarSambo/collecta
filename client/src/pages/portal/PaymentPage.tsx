@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ExternalLink, ArrowLeft, ShieldCheck } from 'lucide-react'
+import { ExternalLink, ArrowLeft, ShieldCheck, CreditCard, Building2, Hash, Smartphone } from 'lucide-react'
 import { portalApi } from '@/api/portal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -11,6 +11,12 @@ import { formatCurrency } from '@/lib/utils'
 import { FullPageSpinner } from '@/components/ui/Spinner'
 
 const LARGE_PAYMENT_THRESHOLD = 50000
+
+function calcServiceCharge(amountNaira: number): number {
+  return Math.round(Math.min(200 + amountNaira * 0.02, 3000) * 100) / 100
+}
+
+type PaymentMethod = 'card' | 'bank_transfer' | 'ussd' | 'mobile_money'
 
 export function PaymentPage() {
   const { slug, chargeId } = useParams<{ slug: string; chargeId: string }>()
@@ -26,6 +32,7 @@ export function PaymentPage() {
   const [amountInput, setAmountInput] = useState('')
   const [amountError, setAmountError] = useState('')
   const [confirmed, setConfirmed] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card')
 
   useEffect(() => {
     if (data?.remainingAmount !== undefined) {
@@ -36,7 +43,7 @@ export function PaymentPage() {
   const initiatePayment = useMutation({
     mutationFn: () => {
       const amount = parseFloat(amountInput)
-      return portalApi.initiatePayment(slug!, chargeId!, amount)
+      return portalApi.initiatePayment(slug!, chargeId!, amount, paymentMethod)
     },
     onSuccess: (res) => {
       const url = res?.data?.paymentUrl ?? res?.paymentUrl
@@ -60,7 +67,6 @@ export function PaymentPage() {
     }
     setAmountError('')
 
-    // Show confirmation screen for large payments before proceeding
     if (amount >= LARGE_PAYMENT_THRESHOLD && !confirmed) {
       setConfirmed(true)
       return
@@ -80,6 +86,8 @@ export function PaymentPage() {
   }
 
   const payAmount = parseFloat(amountInput) || 0
+  const serviceCharge = payAmount > 0 ? calcServiceCharge(payAmount) : 0
+  const totalToPay = payAmount + serviceCharge
   const isPartial = payAmount < data.remainingAmount && payAmount > 0
   const isLargePayment = payAmount >= LARGE_PAYMENT_THRESHOLD
 
@@ -119,9 +127,21 @@ export function PaymentPage() {
                 <span className="text-gray-500">Fee</span>
                 <span className="font-medium">{data.feeName}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Fee amount</span>
+                <span className="font-medium">{formatCurrency(payAmount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Service charge</span>
+                <span className="font-medium">{formatCurrency(serviceCharge)}</span>
+              </div>
               <div className="flex justify-between border-t pt-2">
-                <span className="font-semibold">You are paying</span>
-                <span className="font-bold text-lg">{formatCurrency(payAmount)}</span>
+                <span className="font-semibold">Total you pay</span>
+                <span className="font-bold text-lg">{formatCurrency(totalToPay)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Payment via</span>
+                <span className="font-medium">Paystack (secure)</span>
               </div>
             </div>
 
@@ -139,10 +159,10 @@ export function PaymentPage() {
               isLoading={initiatePayment.isPending}
             >
               <ExternalLink className="h-5 w-5" />
-              Confirm — Pay {formatCurrency(payAmount)}
+              Confirm — Pay {formatCurrency(totalToPay)}
             </Button>
             <p className="text-center text-xs text-gray-400">
-              You'll be redirected to Paystack's secure payment page.
+              A receipt will be sent to your email address immediately after payment.
             </p>
           </CardContent>
         </Card>
@@ -200,10 +220,70 @@ export function PaymentPage() {
             {isPartial && (
               <p className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
                 This is a partial payment. The remaining{' '}
-                <strong>
-                  {formatCurrency(data.remainingAmount - payAmount)}
-                </strong>{' '}
+                <strong>{formatCurrency(data.remainingAmount - payAmount)}</strong>{' '}
                 will still be outstanding after payment.
+              </p>
+            )}
+          </div>
+
+          {/* Service charge breakdown */}
+          {payAmount > 0 && (
+            <div className="rounded-lg border border-gray-200 p-3 space-y-1.5 text-sm">
+              <div className="flex justify-between text-gray-600">
+                <span>Fee amount</span>
+                <span>{formatCurrency(payAmount)}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Service charge</span>
+                <span>{formatCurrency(serviceCharge)}</span>
+              </div>
+              <div className="flex justify-between font-semibold border-t pt-1.5 text-gray-900">
+                <span>Total you pay</span>
+                <span>{formatCurrency(totalToPay)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Payment method selector */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-gray-700">How would you like to pay?</p>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { id: 'card', label: 'Debit / Credit Card', Icon: CreditCard },
+                { id: 'bank_transfer', label: 'Bank Transfer', Icon: Building2 },
+                { id: 'ussd', label: 'USSD', Icon: Hash },
+                ...(data.network?.country === 'KE' && data.network?.kenyaEnabled
+                  ? [{ id: 'mobile_money', label: 'Mobile Money', Icon: Smartphone }]
+                  : []),
+              ] as { id: PaymentMethod; label: string; Icon: React.ElementType }[]).map(({ id, label, Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setPaymentMethod(id)}
+                  className={`flex flex-col items-center gap-1.5 rounded-lg border p-3 text-sm transition-colors ${
+                    paymentMethod === id
+                      ? 'border-gray-900 bg-gray-50 font-semibold'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-400'
+                  }`}
+                >
+                  <Icon className="h-5 w-5" />
+                  {label}
+                </button>
+              ))}
+            </div>
+            {paymentMethod === 'bank_transfer' && (
+              <p className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded px-3 py-2">
+                You'll receive a unique account number to transfer to. Confirmation takes 2–5 minutes.
+              </p>
+            )}
+            {paymentMethod === 'ussd' && (
+              <p className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded px-3 py-2">
+                You'll be given a USSD code to dial. No internet required after you click Pay.
+              </p>
+            )}
+            {paymentMethod === 'mobile_money' && (
+              <p className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded px-3 py-2">
+                Pay via M-Pesa or your mobile money wallet. You'll receive a push notification to confirm.
               </p>
             )}
           </div>
@@ -218,14 +298,14 @@ export function PaymentPage() {
             {initiatePayment.isPending
               ? 'Redirecting...'
               : isLargePayment
-                ? `Review payment — ${formatCurrency(payAmount)}`
+                ? `Review payment — ${formatCurrency(totalToPay)}`
                 : isPartial
-                  ? `Pay ${formatCurrency(payAmount)} now`
-                  : `Pay ${formatCurrency(data.remainingAmount)} in full`}
+                  ? `Pay ${formatCurrency(totalToPay)} now`
+                  : `Pay ${formatCurrency(totalToPay)} in full`}
           </Button>
 
           <p className="text-center text-xs text-gray-400">
-            You'll be redirected to Paystack's secure payment page.
+            Secured by Paystack. A receipt will be sent to your email after payment.
           </p>
         </CardContent>
       </Card>

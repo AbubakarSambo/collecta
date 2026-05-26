@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Plus } from 'lucide-react'
+import { Plus, PlusCircle, Trash2 } from 'lucide-react'
 import { feesApi } from '@/api/fees'
 import { useNetwork } from '@/hooks/useNetwork'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -41,19 +41,33 @@ export function FeesPage() {
     frequency: string
     dueDay: number
     description?: string
+    penaltyEnabled?: boolean
+    penaltyPercent?: number
+    penaltyGraceDays?: number
   }
 
   const { register, handleSubmit, reset, watch, formState: { errors: feeErrors } } = useForm<CreateFeeForm>({
-    defaultValues: { type: 'ASSIGNED', paymentType: 'SCHEDULED', frequency: 'MONTHLY', dueDay: 1 },
+    defaultValues: { type: 'ASSIGNED', paymentType: 'SCHEDULED', frequency: 'MONTHLY', dueDay: 1, penaltyEnabled: false, penaltyGraceDays: 7 },
   })
 
+  const [feeOptions, setFeeOptions] = useState<Array<{ name: string; amount: number }>>([])
+
+  const addOption = () => setFeeOptions((o) => [...o, { name: '', amount: 2000 }])
+  const removeOption = (i: number) => setFeeOptions((o) => o.filter((_, idx) => idx !== i))
+  const updateOption = (i: number, field: 'name' | 'amount', value: string | number) =>
+    setFeeOptions((o) => o.map((opt, idx) => idx === i ? { ...opt, [field]: value } : opt))
+
   const createMutation = useMutation({
-    mutationFn: (data: any) => feesApi.create(networkId!, data),
+    mutationFn: (data: any) => feesApi.create(networkId!, {
+      ...data,
+      options: feeOptions.length > 0 ? feeOptions : undefined,
+    }),
     onSuccess: () => {
       toast.success('Fee created')
       queryClient.invalidateQueries({ queryKey: ['fees', networkId] })
       setCreateOpen(false)
       reset()
+      setFeeOptions([])
     },
     onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed'),
   })
@@ -170,11 +184,16 @@ export function FeesPage() {
                     v >= 2000 || 'Minimum fee amount is ₦2,000. Lower amounts create poor payment experience for members.',
                 })}
               />
-              {!feeErrors.amount && watch('amount') >= 2000 && (
-                <p className="mt-1 text-xs text-gray-500">
-                  Members will pay ₦{Number(watch('amount')).toLocaleString()} + service charge. The service charge covers payment processing.
-                </p>
-              )}
+              {!feeErrors.amount && watch('amount') >= 2000 && (() => {
+                const amt = Number(watch('amount'))
+                const svc = Math.round(Math.min(200 + amt * 0.02, 3000) * 100) / 100
+                const total = amt + svc
+                return (
+                  <p className="mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                    Members will pay <strong>₦{total.toLocaleString()}</strong> — this includes a ₦{svc.toLocaleString()} service charge.
+                  </p>
+                )
+              })()}
             </div>
           </div>
           {watch('type') === 'ASSIGNED' && (
@@ -193,6 +212,81 @@ export function FeesPage() {
             <Label>Description (optional)</Label>
             <Textarea placeholder="Description..." {...register('description')} />
           </div>
+
+          {/* Penalty configuration — ASSIGNED fees only */}
+          {watch('type') === 'ASSIGNED' && (
+            <div className="rounded-lg border border-gray-200 p-3 space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" className="rounded" {...register('penaltyEnabled')} />
+                <span className="text-sm font-medium text-gray-700">Enable late payment penalty</span>
+              </label>
+              {watch('penaltyEnabled') && (
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <Label>Penalty (%)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder="10"
+                      {...register('penaltyPercent', { valueAsNumber: true })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Grace period (days)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="7"
+                      {...register('penaltyGraceDays', { valueAsNumber: true })}
+                    />
+                  </div>
+                </div>
+              )}
+              {watch('penaltyEnabled') && (
+                <p className="text-xs text-gray-500">
+                  A {watch('penaltyPercent') || 0}% penalty applies after {watch('penaltyGraceDays') ?? 7} days overdue.
+                  Reminders will warn members before it triggers.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Options — OPEN fees only */}
+          {watch('type') === 'OPEN' && (
+            <div className="rounded-lg border border-gray-200 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700">Payment options (optional)</span>
+                <button type="button" onClick={addOption} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+                  <PlusCircle className="h-3.5 w-3.5" /> Add option
+                </button>
+              </div>
+              {feeOptions.length === 0 && (
+                <p className="text-xs text-gray-400">e.g. Guest Parking (₦2,000), Pool Access (₦1,500)</p>
+              )}
+              {feeOptions.map((opt, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Input
+                    placeholder="Option name"
+                    value={opt.name}
+                    onChange={(e) => updateOption(i, 'name', e.target.value)}
+                    className="flex-1"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Amount"
+                    value={opt.amount}
+                    onChange={(e) => updateOption(i, 'amount', Number(e.target.value))}
+                    className="w-28"
+                  />
+                  <button type="button" onClick={() => removeOption(i)} className="text-gray-400 hover:text-red-500">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="flex gap-2 pt-2">
             <Button type="button" variant="outline" className="flex-1" onClick={() => setCreateOpen(false)}>
               Cancel

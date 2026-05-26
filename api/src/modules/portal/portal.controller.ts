@@ -76,8 +76,14 @@ export class PortalController {
     @Param('slug') slug: string,
     @Param('chargeId') chargeId: string,
     @Body('amount') amount?: number,
+    @Body('paymentMethod') paymentMethod?: 'card' | 'bank_transfer' | 'ussd' | 'mobile_money',
   ) {
-    return this.portalService.initiatePayment(slug, chargeId, amount ? Number(amount) : undefined);
+    return this.portalService.initiatePayment(
+      slug,
+      chargeId,
+      amount ? Number(amount) : undefined,
+      paymentMethod,
+    );
   }
 
   @Get(':slug/join/:token')

@@ -169,7 +169,7 @@ export class FeesService {
                 fee.name,
                 Number(charge.amount),
                 charge.dueDate,
-                `${frontendUrl}/n/${network.slug}/pay/${charge.id}`,
+                `${frontendUrl}/pay/${network.slug}/pay/${charge.id}`,
               )
               .catch(() => {});
           }
@@ -199,7 +199,7 @@ export class FeesService {
             fee.name,
             Number(charge.amount),
             charge.dueDate,
-            `${frontendUrl}/n/${network.slug}/pay/${charge.id}`,
+            `${frontendUrl}/pay/${network.slug}/pay/${charge.id}`,
           )
           .catch(() => {});
       }

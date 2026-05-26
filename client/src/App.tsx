@@ -57,7 +57,7 @@ function App() {
         <Route path="/payment/callback" element={<PaymentCallbackPage />} />
 
         {/* Member portal (public) */}
-        <Route path="/n/:slug" element={<PortalLayout />}>
+        <Route path="/pay/:slug" element={<PortalLayout />}>
           <Route index element={<MemberPortalPage />} />
           <Route path="login" element={<MemberLoginPage />} />
           <Route path="profile/:memberId" element={<MemberProfilePage />} />

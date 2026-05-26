@@ -68,6 +68,7 @@ export class PaystackService {
     description?: string;
     member: { email?: string; firstName: string; lastName: string };
     network: { paystackSubaccountCode?: string; name: string };
+    channels?: string[]; // e.g. ['card'] or ['bank_transfer'] — omit for all
   }): Promise<{ authorization_url: string; reference: string }> {
     const reference = `CHG-${charge.id}-${Date.now()}`;
 
@@ -87,6 +88,10 @@ export class PaystackService {
       },
       callback_url: `${this.configService.get<string>('app.frontendUrl')}/payment/callback`,
     };
+
+    if (charge.channels && charge.channels.length > 0) {
+      payload.channels = charge.channels;
+    }
 
     // When a subaccount exists, use Paystack's split to route org amount to the
     // subaccount and keep the service charge in the main (Collecta) account.

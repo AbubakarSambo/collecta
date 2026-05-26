@@ -1,7 +1,7 @@
 import apiClient from './client'
 
 export const membersApi = {
-  list: (networkId: string, params?: { page?: number; limit?: number; search?: string; status?: string }) =>
+  list: (networkId: string, params?: { page?: number; limit?: number; search?: string; status?: string; ghost?: boolean }) =>
     apiClient.get(`/networks/${networkId}/members`, { params }).then((r) => r.data),
 
   getById: (networkId: string, id: string) =>
