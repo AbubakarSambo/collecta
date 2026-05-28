@@ -1,19 +1,13 @@
-/*
-  Warnings:
-
-  - A unique constraint covering the columns `[paystackReference]` on the table `Payment` will be added. If there are existing duplicate values, this will fail.
-
-*/
 -- CreateEnum
 CREATE TYPE "ImportJobStatus" AS ENUM ('QUEUED', 'PROCESSING', 'DONE', 'FAILED');
 
 -- AlterTable
-ALTER TABLE "Member" ADD COLUMN     "smsOptedOut" BOOLEAN NOT NULL DEFAULT false,
-ADD COLUMN     "smsOptedOutAt" TIMESTAMP(3);
+ALTER TABLE "Member" ADD COLUMN "smsOptedOut" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "smsOptedOutAt" TIMESTAMP(3);
 
 -- AlterTable
-ALTER TABLE "Network" ADD COLUMN     "lastProcessedId" TEXT,
-ADD COLUMN     "lastRunAt" TIMESTAMP(3);
+ALTER TABLE "Network" ADD COLUMN "lastProcessedId" TEXT,
+ADD COLUMN "lastRunAt" TIMESTAMP(3);
 
 -- CreateTable
 CREATE TABLE "VerificationRequest" (
@@ -68,7 +62,8 @@ CREATE UNIQUE INDEX "VerificationRequest_networkId_key" ON "VerificationRequest"
 -- CreateIndex
 CREATE UNIQUE INDEX "ReminderRule_networkId_daysOffset_key" ON "ReminderRule"("networkId", "daysOffset");
 
--- CreateIndex
+-- Replace partial index with full unique index to match schema
+DROP INDEX IF EXISTS "Payment_paystackReference_key";
 CREATE UNIQUE INDEX "Payment_paystackReference_key" ON "Payment"("paystackReference");
 
 -- AddForeignKey
