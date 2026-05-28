@@ -1,5 +1,6 @@
-import { IsEmail, IsString, MinLength, MaxLength, Matches, IsOptional } from 'class-validator';
+import { IsEmail, IsString, MinLength, MaxLength, Matches, IsOptional, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { NetworkType } from '@prisma/client';
 
 export class RegisterDto {
   @ApiProperty({ example: 'Amaka' })
@@ -40,4 +41,9 @@ export class RegisterDto {
   @IsString()
   @MaxLength(300)
   networkDescription?: string;
+
+  @ApiPropertyOptional({ enum: NetworkType, example: NetworkType.ESTATE })
+  @IsOptional()
+  @IsEnum(NetworkType)
+  networkType?: NetworkType;
 }

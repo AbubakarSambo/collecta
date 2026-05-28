@@ -47,9 +47,18 @@ export class MembersController {
   }
 
   @Post('import')
-  @ApiOperation({ summary: 'Import members from CSV' })
+  @ApiOperation({ summary: 'Import members from CSV (async — returns jobId)' })
   async importCsv(@Param('networkId') networkId: string, @Body() dto: ImportMembersDto) {
     return this.membersService.importFromCsv(networkId, dto);
+  }
+
+  @Get('import/:jobId')
+  @ApiOperation({ summary: 'Get import job status' })
+  async importJobStatus(
+    @Param('networkId') networkId: string,
+    @Param('jobId') jobId: string,
+  ) {
+    return this.membersService.getImportJobStatus(networkId, jobId);
   }
 
   @Post(':id/invite-link')
@@ -58,7 +67,7 @@ export class MembersController {
     @Param('networkId') networkId: string,
     @Param('id') id: string,
   ) {
-    const appUrl = this.configService.get<string>('app.frontendUrl') || 'https://collecta.africa';
+    const appUrl = this.configService.get<string>('app.frontendUrl') || 'https://collecta.services';
     return this.membersService.generateInviteLink(id, networkId, appUrl);
   }
 

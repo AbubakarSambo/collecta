@@ -10,12 +10,27 @@ export const networksApi = {
     timezone?: string
   }) => apiClient.patch('/networks/me', data).then((r) => r.data),
 
-  getPaystackStatus: () => apiClient.get('/networks/me/paystack-status').then((r) => r.data),
+  getPaystackStatus: () => apiClient.get('/networks/me/paystack-status').then((r) => r.data.data ?? r.data),
 
   setupPaystack: (data: { bankCode: string; accountNumber: string }) =>
     apiClient.post('/networks/me/setup-paystack', data).then((r) => r.data),
 
   getBySlug: (slug: string) => apiClient.get(`/networks/${slug}`).then((r) => r.data),
+
+  getSmsCredits: (): Promise<{ credits: number }> =>
+    apiClient.get('/networks/sms-credits').then((r) => r.data.data ?? r.data),
+
+  topUpSmsCredits: (bundle: number): Promise<{ credits: number }> =>
+    apiClient.post('/networks/sms-credits/topup', { bundle }).then((r) => r.data.data ?? r.data),
+
+  submitVerification: (data: {
+    organisationName: string
+    cacNumber?: string
+    bvn?: string
+    nin?: string
+    contactAddress: string
+    networkContext?: string
+  }) => apiClient.post('/networks/verification/submit', data).then((r) => r.data),
 }
 
 export const paystackApi = {

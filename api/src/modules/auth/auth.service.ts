@@ -63,6 +63,7 @@ export class AuthService {
           slug: dto.networkSlug.toLowerCase(),
           description: dto.networkDescription,
           adminId: user.id,
+          networkType: dto.networkType ?? 'ESTATE',
         },
       });
 
@@ -309,6 +310,33 @@ export class AuthService {
           }
         : null,
     };
+  }
+
+  async bootstrapPlatformAdmin(data: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+  }) {
+    const existing = await this.prisma.user.findFirst({ where: { isPlatformAdmin: true } });
+    if (existing) {
+      throw new ConflictException('A platform admin already exists');
+    }
+
+    const passwordHash = await bcrypt.hash(data.password, 12);
+    const user = await this.prisma.user.create({
+      data: {
+        email: data.email.toLowerCase(),
+        password: passwordHash,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        role: 'SUPER_ADMIN',
+        isPlatformAdmin: true,
+        isEmailVerified: true,
+      },
+    });
+
+    return { message: 'Platform admin created', email: user.email };
   }
 
   private generateToken(user: { id: string; email: string; network?: { id: string } | null; role: string }) {

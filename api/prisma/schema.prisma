@@ -34,93 +34,132 @@ model EmailVerificationToken {
 }
 
 model Network {
-  id                     String     @id @default(uuid())
+  id                     String             @id @default(uuid())
   name                   String
-  slug                   String     @unique
+  slug                   String             @unique
   description            String?
   logoUrl                String?
-  adminId                String     @unique
+  adminId                String             @unique
+  networkType            NetworkType        @default(ESTATE)
+  verificationStatus     VerificationStatus @default(PENDING)
+  isVerified             Boolean            @default(false)
+  verificationNotes      String?
+  smsCredits             Int                @default(0)
+  smsWarningLastSentAt   DateTime?
+  brandColor             String?            @default("#F5C842")
+  contactPhone           String?
   paystackSubaccountCode String?
   paystackSubaccountId   String?
   bankAccountNumber      String?
   bankAccountName        String?
   bankCode               String?
   settlementBank         String?
-  currency               String     @default("NGN")
-  country                String     @default("NG")
-  timezone               String     @default("Africa/Lagos")
-  isActive               Boolean    @default(true)
-  createdAt              DateTime   @default(now())
-  updatedAt              DateTime   @updatedAt
+  currency               String             @default("NGN")
+  country                String             @default("NG")
+  timezone               String             @default("Africa/Lagos")
+  isActive               Boolean            @default(true)
+  lastRunAt              DateTime?
+  lastProcessedId        String?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
   auditLogs              AuditLog[]
   charges                Charge[]
   fees                   Fee[]
   members                Member[]
-  admin                  User       @relation(fields: [adminId], references: [id])
+  admin                  User               @relation(fields: [adminId], references: [id])
   payments               Payment[]
   reminders              Reminder[]
+  reminderLogs           ReminderLog[]
+  reminderRules          ReminderRule[]
+  verificationRequest    VerificationRequest?
+  importJobs             ImportJob[]
+}
+
+model VerificationRequest {
+  id              String             @id @default(uuid())
+  networkId       String             @unique
+  organisationName String
+  cacNumber       String?
+  bvn             String?
+  nin             String?
+  contactAddress  String?
+  status          VerificationStatus @default(PENDING)
+  rejectionReason String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  network         Network            @relation(fields: [networkId], references: [id], onDelete: Cascade)
 }
 
 model Member {
-  id          String          @id @default(uuid())
-  networkId   String
-  firstName   String
-  lastName    String
-  email       String?
-  phone       String?
-  memberCode  String?
-  unit        String?
-  status      MemberStatus    @default(ACTIVE)
-  isGuest      Boolean         @default(false)
-  inviteToken  String?         @unique
-  otpHash      String?
-  otpExpiresAt DateTime?
-  joinedAt    DateTime        @default(now())
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  charges     Charge[]
-  assignments FeeAssignment[]
-  network     Network         @relation(fields: [networkId], references: [id], onDelete: Cascade)
-  payments    Payment[]
-  reminders   Reminder[]
+  id                    String          @id @default(uuid())
+  networkId             String
+  firstName             String
+  lastName              String
+  email                 String?
+  phone                 String?
+  memberCode            String?
+  unit                  String?
+  status                MemberStatus    @default(ACTIVE)
+  isGuest               Boolean         @default(false)
+  isBlacklisted         Boolean         @default(false)
+  blacklistReason       String?
+  consecutiveMonthsPaid Int             @default(0)
+  smsOptedOut           Boolean         @default(false)
+  smsOptedOutAt         DateTime?
+  inviteToken           String?         @unique
+  otpHash               String?
+  otpExpiresAt          DateTime?
+  joinedAt              DateTime        @default(now())
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  charges               Charge[]
+  assignments           FeeAssignment[]
+  network               Network         @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  payments              Payment[]
+  reminders             Reminder[]
+  reminderLogs          ReminderLog[]
 
   @@unique([networkId, email])
 }
 
 model Fee {
-  id               String          @id @default(uuid())
+  id               String         @id @default(uuid())
   networkId        String
   name             String
   description      String?
   type             FeeType
-  amount           Decimal         @default(0) @db.Decimal(12, 2)
-  frequency        FeeFrequency    @default(MONTHLY)
-  dueDay           Int             @default(1)
-  penaltyEnabled   Boolean         @default(false)
-  penaltyPercent   Decimal         @default(0) @db.Decimal(5, 2)
-  penaltyGraceDays Int             @default(7)
+  paymentType      FeePaymentType @default(SCHEDULED)
+  amount           Decimal        @default(0) @db.Decimal(12, 2)
+  frequency        FeeFrequency   @default(MONTHLY)
+  dueDay           Int            @default(1)
+  windowStart      DateTime?
+  windowEnd        DateTime?
+  penaltyEnabled   Boolean        @default(false)
+  penaltyPercent   Decimal        @default(0) @db.Decimal(5, 2)
+  penaltyGraceDays Int            @default(7)
   options          Json?
-  isActive         Boolean         @default(true)
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  isActive         Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
   charges          Charge[]
-  network          Network         @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  network          Network        @relation(fields: [networkId], references: [id], onDelete: Cascade)
   assignments      FeeAssignment[]
 }
 
 model FeeAssignment {
-  id        String    @id @default(uuid())
-  feeId     String
-  memberId  String
-  amount    Decimal?  @db.Decimal(12, 2)
-  startDate DateTime  @default(now())
-  endDate   DateTime?
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  charges   Charge[]
-  fee       Fee       @relation(fields: [feeId], references: [id], onDelete: Cascade)
-  member    Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  id           String        @id @default(uuid())
+  feeId        String
+  memberId     String
+  amount       Decimal?      @db.Decimal(12, 2)
+  startDate    DateTime      @default(now())
+  endDate      DateTime?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  charges      Charge[]
+  reminderLogs ReminderLog[]
+  fee          Fee           @relation(fields: [feeId], references: [id], onDelete: Cascade)
+  member       Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@unique([feeId, memberId])
 }
@@ -132,7 +171,9 @@ model Charge {
   feeId               String?
   assignmentId        String?
   amount              Decimal        @db.Decimal(12, 2)
+  serviceCharge       Decimal        @default(0) @db.Decimal(12, 2)
   paidAmount          Decimal        @default(0) @db.Decimal(12, 2)
+  billingMonth        String?
   dueDate             DateTime
   status              ChargeStatus   @default(PENDING)
   penaltyApplied      Boolean        @default(false)
@@ -157,8 +198,9 @@ model Payment {
   chargeId          String
   memberId          String
   amount            Decimal       @db.Decimal(12, 2)
+  serviceCharge     Decimal       @default(0) @db.Decimal(12, 2)
   method            PaymentMethod @default(PAYSTACK)
-  paystackReference String?
+  paystackReference String?       @unique
   metadata          Json?
   recordedById      String?
   createdAt         DateTime      @default(now())
@@ -182,6 +224,38 @@ model Reminder {
   network   Network         @relation(fields: [networkId], references: [id])
 }
 
+model ReminderLog {
+  id           String          @id @default(uuid())
+  networkId    String
+  memberId     String
+  assignmentId String?
+  chargeId     String?
+  channel      ReminderChannel
+  tone         ReminderTone
+  sentDate     String
+  createdAt    DateTime        @default(now())
+  network      Network         @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  member       Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  assignment   FeeAssignment?  @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+
+  @@unique([assignmentId, sentDate, channel])
+}
+
+model ImportJob {
+  id            String          @id @default(uuid())
+  networkId     String
+  status        ImportJobStatus @default(QUEUED)
+  rawData       Json?
+  errors        Json            @default("[]")
+  totalRows     Int             @default(0)
+  processedRows Int             @default(0)
+  createdCount  Int             @default(0)
+  skippedCount  Int             @default(0)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  network       Network         @relation(fields: [networkId], references: [id], onDelete: Cascade)
+}
+
 model AuditLog {
   id         String   @id @default(uuid())
   networkId  String
@@ -194,9 +268,37 @@ model AuditLog {
   network    Network  @relation(fields: [networkId], references: [id])
 }
 
+model ReminderRule {
+  id         String   @id @default(uuid())
+  networkId  String
+  daysOffset Int
+  channels   String[]
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  network    Network  @relation(fields: [networkId], references: [id], onDelete: Cascade)
+
+  @@unique([networkId, daysOffset])
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
 enum UserRole {
   SUPER_ADMIN
   NETWORK_ADMIN
+}
+
+enum NetworkType {
+  ESTATE
+  CHAMA
+  SUPPLIER
+  DEBT
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum MemberStatus {
@@ -208,6 +310,12 @@ enum MemberStatus {
 enum FeeType {
   ASSIGNED
   OPEN
+}
+
+enum FeePaymentType {
+  SCHEDULED
+  OPEN
+  WINDOWED
 }
 
 enum FeeFrequency {
@@ -243,5 +351,19 @@ enum ReminderChannel {
 enum ReminderStatus {
   PENDING
   SENT
+  FAILED
+}
+
+enum ReminderTone {
+  FRIENDLY
+  CLEAR
+  FIRM
+  FORMAL
+}
+
+enum ImportJobStatus {
+  QUEUED
+  PROCESSING
+  DONE
   FAILED
 }

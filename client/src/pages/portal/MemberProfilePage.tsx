@@ -1,6 +1,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { CheckCircle, AlertTriangle, LogOut } from 'lucide-react'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { CheckCircle, AlertTriangle, LogOut, Trophy, Star, BellOff } from 'lucide-react'
+import { toast } from 'sonner'
 import { portalApi } from '@/api/portal'
 import { getMemberSession, clearMemberSession } from '@/hooks/useMemberSession'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -8,6 +9,22 @@ import { StatusBadge } from '@/components/ui/Badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { FullPageSpinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
+import { cn } from '@/lib/utils'
+
+function TierBadge({ tier, label }: { tier: 'TOP' | 'SECOND' | null; label: string | null }) {
+  if (!tier || !label) return null
+  return (
+    <div
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium',
+        tier === 'TOP' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-50 text-blue-700',
+      )}
+    >
+      {tier === 'TOP' ? <Trophy className="h-3 w-3" /> : <Star className="h-3 w-3" />}
+      {label}
+    </div>
+  )
+}
 
 export function MemberProfilePage() {
   const { slug, memberId } = useParams<{ slug: string; memberId: string }>()
@@ -17,7 +34,7 @@ export function MemberProfilePage() {
 
   const handleLogout = () => {
     if (slug) clearMemberSession(slug)
-    navigate(`/n/${slug}`)
+    navigate(`/pay/${slug}`)
   }
 
   const { data, isLoading } = useQuery({
@@ -25,6 +42,12 @@ export function MemberProfilePage() {
     queryFn: () => portalApi.getMemberProfile(slug!, memberId!),
     enabled: !!slug && !!memberId,
     select: (r) => r.data,
+  })
+
+  const optOutMutation = useMutation({
+    mutationFn: () => portalApi.smsOptOut(slug!, memberId!),
+    onSuccess: () => toast.success('You have been unsubscribed from SMS reminders'),
+    onError: () => toast.error('Failed to unsubscribe. Please try again.'),
   })
 
   if (isLoading) return <FullPageSpinner />
@@ -37,7 +60,7 @@ export function MemberProfilePage() {
     )
   }
 
-  const { member, charges, summary, motivationalMessage } = data
+  const { member, charges, summary, motivationalMessage, tierTag } = data
 
   const isGoodStanding = summary.chargesOverdue === 0
 
@@ -69,6 +92,7 @@ export function MemberProfilePage() {
           {member.firstName} {member.lastName}
         </h2>
         {member.unit && <p className="text-gray-500">{member.unit}</p>}
+        {tierTag && <TierBadge tier={tierTag.tier} label={tierTag.label} />}
         <p className={`mt-2 text-sm font-medium ${isGoodStanding ? 'text-green-700' : 'text-red-600'}`}>
           {motivationalMessage}
         </p>
@@ -122,7 +146,7 @@ export function MemberProfilePage() {
                     <p className="font-bold">{formatCurrency(Number(c.amount))}</p>
                     <StatusBadge status={c.status} />
                     {(c.status === 'PENDING' || c.status === 'OVERDUE' || c.status === 'PARTIALLY_PAID') && (
-                      <Link to={`/n/${slug}/pay/${c.id}`}>
+                      <Link to={`/pay/${slug}/pay/${c.id}`}>
                         <Button size="sm" variant="outline" className="mt-1">
                           Pay Now
                         </Button>
@@ -135,6 +159,19 @@ export function MemberProfilePage() {
           )}
         </CardContent>
       </Card>
+
+      {isOwnProfile && (
+        <div className="text-center pt-2">
+          <button
+            onClick={() => optOutMutation.mutate()}
+            disabled={optOutMutation.isPending || optOutMutation.isSuccess}
+            className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 disabled:opacity-50"
+          >
+            <BellOff className="h-3.5 w-3.5" />
+            {optOutMutation.isSuccess ? 'Unsubscribed from SMS' : 'Unsubscribe from SMS reminders'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

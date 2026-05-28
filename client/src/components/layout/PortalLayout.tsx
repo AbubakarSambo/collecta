@@ -42,7 +42,7 @@ export function PortalLayout() {
 
       <footer className="mt-12 py-6 text-center text-xs text-gray-400">
         Powered by{' '}
-        <a href="https://collecta.africa" className="text-green-600 hover:underline">
+        <a href="https://collecta.services" className="text-green-600 hover:underline">
           Collecta
         </a>
       </footer>

@@ -1,3 +1,25 @@
+export const NETWORK_TYPES = [
+  { value: 'ESTATE', label: 'Residential Estate / Property Management' },
+  { value: 'CHAMA', label: 'Chama / Savings Group / Investment Club' },
+  { value: 'SUPPLIER', label: 'Service Provider / Supplier (waste, security, cleaning)' },
+  { value: 'DEBT', label: 'Lending / Cooperative / Loan Collections' },
+]
+
+export const FEE_PAYMENT_TYPES = [
+  {
+    value: 'SCHEDULED',
+    label: 'Recurring obligation (service charge, dues) — full reminder sequence applies',
+  },
+  {
+    value: 'OPEN',
+    label: 'Optional payment (event, levy) — gentle reminders only, never marked overdue',
+  },
+  {
+    value: 'WINDOWED',
+    label: 'Time-limited obligation (annual renewal) — soft reminders during window, firm after',
+  },
+]
+
 export const CHARGE_STATUSES = [
   { value: 'PENDING', label: 'Pending' },
   { value: 'PAID', label: 'Paid' },

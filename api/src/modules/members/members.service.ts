@@ -4,6 +4,7 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMemberDto, UpdateMemberDto, ImportMembersDto } from './dto';
 import { PaginationDto, paginate } from '../../common/dto';
@@ -13,14 +14,25 @@ import { randomUUID } from 'crypto';
 export class MembersService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(networkId: string, pagination: PaginationDto & { search?: string; status?: string }) {
-    const { page = 1, limit = 20, search, status } = pagination;
+  async findAll(networkId: string, pagination: PaginationDto & { search?: string; status?: string; ghost?: boolean }) {
+    const { page = 1, limit = 20, search, status, ghost } = pagination;
     const skip = (page - 1) * limit;
 
     const where: any = { networkId };
 
     if (status) {
       where.status = status;
+    }
+
+    if (ghost === true) {
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      where.status = 'ACTIVE';
+      where.joinedAt = { lte: ninetyDaysAgo };
+      where.AND = [
+        { charges: { some: {} } },
+        { charges: { none: { status: 'PAID' } } },
+      ];
     }
 
     if (search) {
@@ -159,36 +171,88 @@ export class MembersService {
       }
     }
 
-    const results = { created: 0, skipped: 0, errors: [] as string[] };
-
+    const dataRows: Record<string, string>[] = [];
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
-
       const values = line.split(',').map((v) => v.trim());
       const row: Record<string, string> = {};
-
       headers.forEach((header, idx) => {
         row[header] = values[idx] || '';
       });
+      dataRows.push(row);
+    }
 
+    const job = await this.prisma.importJob.create({
+      data: {
+        networkId,
+        status: 'QUEUED',
+        rawData: dataRows as any,
+        totalRows: dataRows.length,
+      },
+    });
+
+    return { jobId: job.id, totalRows: dataRows.length };
+  }
+
+  async getImportJobStatus(networkId: string, jobId: string) {
+    const job = await this.prisma.importJob.findFirst({
+      where: { id: jobId, networkId },
+      select: {
+        id: true,
+        status: true,
+        totalRows: true,
+        processedRows: true,
+        createdCount: true,
+        skippedCount: true,
+        errors: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!job) throw new NotFoundException('Import job not found');
+
+    return job;
+  }
+
+  @Cron('*/2 * * * *')
+  async processImportJobs() {
+    const job = await this.prisma.importJob.findFirst({
+      where: { status: 'QUEUED' },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (!job) return;
+
+    await this.prisma.importJob.update({
+      where: { id: job.id },
+      data: { status: 'PROCESSING' },
+    });
+
+    const rows = (job.rawData as Record<string, string>[]) || [];
+    const errors: string[] = [];
+    let created = 0;
+    let skipped = 0;
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
       try {
         const email = row['email'] ? row['email'].toLowerCase() : undefined;
 
         if (email) {
           const existing = await this.prisma.member.findFirst({
-            where: { networkId, email },
+            where: { networkId: job.networkId, email },
           });
-
           if (existing) {
-            results.skipped++;
+            skipped++;
             continue;
           }
         }
 
         await this.prisma.member.create({
           data: {
-            networkId,
+            networkId: job.networkId,
             firstName: row['firstname'],
             lastName: row['lastname'],
             email: email || null,
@@ -198,13 +262,30 @@ export class MembersService {
           },
         });
 
-        results.created++;
+        created++;
       } catch (err) {
-        results.errors.push(`Row ${i}: ${err.message}`);
+        errors.push(`Row ${i + 1}: ${err.message}`);
+      }
+
+      if ((i + 1) % 50 === 0) {
+        await this.prisma.importJob.update({
+          where: { id: job.id },
+          data: { processedRows: i + 1, createdCount: created, skippedCount: skipped },
+        });
       }
     }
 
-    return results;
+    await this.prisma.importJob.update({
+      where: { id: job.id },
+      data: {
+        status: errors.length === rows.length && rows.length > 0 ? 'FAILED' : 'DONE',
+        processedRows: rows.length,
+        createdCount: created,
+        skippedCount: skipped,
+        errors: errors as any,
+        rawData: null,
+      },
+    });
   }
 
   async generateInviteLink(id: string, networkId: string, appUrl: string) {
@@ -229,7 +310,7 @@ export class MembersService {
 
     return {
       inviteToken: token,
-      inviteUrl: `${appUrl}/n/${member.network.slug}/join/${token}`,
+      inviteUrl: `${appUrl}/pay/${member.network.slug}/join/${token}`,
     };
   }
 }

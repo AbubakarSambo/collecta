@@ -12,7 +12,7 @@ export class EmailService {
   constructor(private configService: ConfigService) {
     this.resend = new Resend(this.configService.get<string>('resend.apiKey'));
     this.fromEmail =
-      this.configService.get<string>('resend.fromEmail') || 'Collecta <noreply@collecta.africa>';
+      this.configService.get<string>('resend.fromEmail') || 'Collecta <noreply@collecta.services>';
     this.frontendUrl =
       this.configService.get<string>('resend.frontendUrl') || 'http://localhost:5173';
   }
@@ -117,6 +117,7 @@ export class EmailService {
     dueDate: Date,
     paymentUrl: string,
     customMessage?: string,
+    tone: 'FRIENDLY' | 'CLEAR' | 'FIRM' | 'FORMAL' = 'CLEAR',
   ): Promise<void> {
     const formattedAmount = new Intl.NumberFormat('en-NG', {
       style: 'currency',
@@ -129,22 +130,60 @@ export class EmailService {
       year: 'numeric',
     });
 
+    const toneConfig: Record<string, { subject: string; greeting: string; ctaColor: string }> = {
+      FRIENDLY: {
+        subject: `Reminder: ${feeName} is due soon`,
+        greeting: `Hi ${firstName},`,
+        ctaColor: '#16a34a',
+      },
+      CLEAR: {
+        subject: `${feeName} — ${formattedAmount} due today`,
+        greeting: `Hi ${firstName},`,
+        ctaColor: '#2563eb',
+      },
+      FIRM: {
+        subject: `Action required: ${feeName} is overdue`,
+        greeting: `${firstName},`,
+        ctaColor: '#d97706',
+      },
+      FORMAL: {
+        subject: `Overdue notice: ${feeName} — ${formattedAmount}`,
+        greeting: `${firstName},`,
+        ctaColor: '#dc2626',
+      },
+    };
+
+    const toneBody: Record<string, string> = {
+      FRIENDLY: customMessage
+        ? `<p>${customMessage}</p>`
+        : `<p>Your payment for <strong>${feeName}</strong> is coming up. Pay at your convenience before the due date to stay current.</p>`,
+      CLEAR: customMessage
+        ? `<p>${customMessage}</p>`
+        : `<p>Your payment for <strong>${feeName}</strong> of ${formattedAmount} is due today.</p>`,
+      FIRM: customMessage
+        ? `<p>${customMessage}</p>`
+        : `<p>Your payment for <strong>${feeName}</strong> of ${formattedAmount} is now overdue. Please settle this as soon as possible.</p>`,
+      FORMAL: customMessage
+        ? `<p>${customMessage}</p>`
+        : `<p>Your payment for <strong>${feeName}</strong> of ${formattedAmount} remains outstanding. Continued non-payment may affect your access. Please settle this immediately.</p>`,
+    };
+
+    const cfg = toneConfig[tone] || toneConfig['CLEAR'];
+
     await this.sendEmail({
       to: email,
-      subject: `Payment reminder: ${feeName} — ${formattedAmount} due`,
+      subject: cfg.subject,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Payment Reminder</h2>
-          <p>Hi ${firstName},</p>
-          ${customMessage ? `<p>${customMessage}</p>` : ''}
-          <p>This is a reminder that your payment for <strong>${feeName}</strong> is due.</p>
+          <p>${cfg.greeting}</p>
+          ${toneBody[tone] || toneBody['CLEAR']}
           <table style="border-collapse: collapse; width: 100%; margin: 16px 0;">
             <tr>
               <td style="padding: 8px; border: 1px solid #e5e7eb;">Fee</td>
               <td style="padding: 8px; border: 1px solid #e5e7eb;"><strong>${feeName}</strong></td>
             </tr>
             <tr>
-              <td style="padding: 8px; border: 1px solid #e5e7eb;">Amount Due</td>
+              <td style="padding: 8px; border: 1px solid #e5e7eb;">Amount</td>
               <td style="padding: 8px; border: 1px solid #e5e7eb;"><strong>${formattedAmount}</strong></td>
             </tr>
             <tr>
@@ -154,8 +193,8 @@ export class EmailService {
           </table>
           <div style="margin: 32px 0;">
             <a href="${paymentUrl}"
-               style="display: inline-block; background: #16a34a; color: white; padding: 12px 24px;
-                      text-decoration: none; border-radius: 6px;">
+               style="display: inline-block; background: ${cfg.ctaColor}; color: white; padding: 12px 24px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600;">
               Pay Now
             </a>
           </div>
@@ -321,6 +360,53 @@ export class EmailService {
           <p>Your payment of <strong>${formattedAmount}</strong> for <strong>${feeName}</strong> has been received and confirmed.</p>
           <p>Thank you for staying current with your payments!</p>
           <p style="color: #6b7280; font-size: 12px;">Sent via Collecta on behalf of ${networkName}</p>
+        </div>
+      `,
+    });
+  }
+
+  async sendOnboardingTemplates(
+    email: string,
+    firstName: string,
+    networkName: string,
+    networkType: string,
+    portalUrl: string,
+  ): Promise<void> {
+    const typeLabel: Record<string, string> = {
+      ESTATE: 'estate residents',
+      CHAMA: 'chama members',
+      SUPPLIER: 'clients',
+      DEBT: 'borrowers',
+    };
+
+    const noun = typeLabel[networkType] || 'members';
+
+    const whatsappTemplate = `Hi! ${networkName} now uses Collecta to manage payments. You can view your charges and pay online here: ${portalUrl}\n\nNo login needed — just visit the link. Your receipts are digital and permanent.`;
+    const smsTemplate = `${networkName}: Pay dues online at ${portalUrl}. View charges, pay securely, get instant receipt.`;
+
+    await this.sendEmail({
+      to: email,
+      subject: `Your Collecta portal is live — here's how to tell your ${noun}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
+          <h2 style="color: #16a34a;">Your portal is live, ${firstName}!</h2>
+          <p><strong>${networkName}</strong> has been verified. Your payment portal is now active at:</p>
+          <p style="background: #f3f4f6; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 14px;">${portalUrl}</p>
+
+          <h3>Share with your ${noun}</h3>
+          <p>Copy and send one of these messages — WhatsApp or SMS:</p>
+
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 12px 0;">
+            <p style="font-size: 11px; color: #6b7280; margin: 0 0 8px;">WhatsApp template</p>
+            <p style="margin: 0; white-space: pre-wrap; font-size: 14px;">${whatsappTemplate}</p>
+          </div>
+
+          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 12px 0;">
+            <p style="font-size: 11px; color: #6b7280; margin: 0 0 8px;">SMS template</p>
+            <p style="margin: 0; font-size: 14px;">${smsTemplate}</p>
+          </div>
+
+          <p style="color: #6b7280; font-size: 12px; margin-top: 24px;">Collecta — collecta.services</p>
         </div>
       `,
     });

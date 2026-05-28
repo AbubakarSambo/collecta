@@ -1,7 +1,7 @@
 import apiClient from './client'
 
 export const membersApi = {
-  list: (networkId: string, params?: { page?: number; limit?: number; search?: string; status?: string }) =>
+  list: (networkId: string, params?: { page?: number; limit?: number; search?: string; status?: string; ghost?: boolean }) =>
     apiClient.get(`/networks/${networkId}/members`, { params }).then((r) => r.data),
 
   getById: (networkId: string, id: string) =>
@@ -24,6 +24,9 @@ export const membersApi = {
 
   importCsv: (networkId: string, csvData: string) =>
     apiClient.post(`/networks/${networkId}/members/import`, { csvData }).then((r) => r.data),
+
+  getImportJobStatus: (networkId: string, jobId: string) =>
+    apiClient.get(`/networks/${networkId}/members/import/${jobId}`).then((r) => r.data),
 
   getInviteLink: (networkId: string, id: string) =>
     apiClient.post(`/networks/${networkId}/members/${id}/invite-link`).then((r) => r.data),

@@ -10,7 +10,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { FeeType, FeeFrequency } from '@prisma/client';
+import { FeeType, FeeFrequency, FeePaymentType } from '@prisma/client';
 import { Type } from 'class-transformer';
 
 export class CreateFeeDto {
@@ -29,9 +29,14 @@ export class CreateFeeDto {
   @IsEnum(FeeType)
   type: FeeType;
 
-  @ApiProperty({ example: 5000 })
+  @ApiPropertyOptional({ enum: FeePaymentType, default: 'SCHEDULED' })
+  @IsOptional()
+  @IsEnum(FeePaymentType)
+  paymentType?: FeePaymentType;
+
+  @ApiProperty({ example: 5000, description: 'Fee amount in Naira — minimum ₦2,000' })
   @IsNumber()
-  @Min(0)
+  @Min(2000, { message: 'Fee amount must be at least ₦2,000. Below this threshold the service charge becomes disproportionate for members.' })
   @Type(() => Number)
   amount: number;
 

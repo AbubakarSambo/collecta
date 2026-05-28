@@ -1,9 +1,23 @@
-import { Controller, Get, Patch, Post, Body, Param } from '@nestjs/common';
-import { IsString, MaxLength } from 'class-validator';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Patch,
+  Post,
+  Body,
+  Param,
+  Query,
+  BadRequestException,
+  ForbiddenException,
+  Req,
+  ParseIntPipe,
+  DefaultValuePipe,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { NetworksService } from './networks.service';
 import { UpdateNetworkDto } from './dto/update-network.dto';
+import { SubmitVerificationDto } from './dto/submit-verification.dto';
 import { CurrentUser, CurrentUserData, Public } from '../../common';
+import { Request } from 'express';
 
 @ApiTags('Networks')
 @Controller('networks')
@@ -44,10 +58,126 @@ export class NetworksController {
     return this.networksService.setupPaystack(user.id, body.bankCode, body.accountNumber);
   }
 
+  // --- Verification endpoints ---
+
+  @Post('verification/submit')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Submit network for verification' })
+  async submitVerification(
+    @CurrentUser() user: CurrentUserData,
+    @Body() dto: SubmitVerificationDto,
+  ) {
+    return this.networksService.submitVerification(user.id, dto);
+  }
+
+  @Post('verification/approve/:networkId')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Approve a network verification (platform admin only)' })
+  async approveVerification(
+    @Param('networkId') networkId: string,
+    @Req() req: Request & { user: CurrentUserData },
+  ) {
+    if (!req.user?.isPlatformAdmin) {
+      throw new ForbiddenException('Platform admin access required');
+    }
+    return this.networksService.approveVerification(networkId);
+  }
+
+  @Post('verification/reject/:networkId')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Reject a network verification (platform admin only)' })
+  async rejectVerification(
+    @Param('networkId') networkId: string,
+    @Body() body: { reason: string },
+    @Req() req: Request & { user: CurrentUserData },
+  ) {
+    if (!req.user?.isPlatformAdmin) {
+      throw new ForbiddenException('Platform admin access required');
+    }
+    return this.networksService.rejectVerification(networkId, body.reason);
+  }
+
+  // --- SMS credits endpoints ---
+
+  @Get('sms-credits')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get SMS credits balance for the current network' })
+  async getSmsCredits(@CurrentUser() user: CurrentUserData) {
+    return this.networksService.getSmsCredits(user.id);
+  }
+
+  @Post('sms-credits/topup')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Top up SMS credits (bundles: 100, 500, 1000, 5000)' })
+  async topUpSmsCredits(
+    @CurrentUser() user: CurrentUserData,
+    @Body() body: { bundle: number },
+  ) {
+    return this.networksService.topUpSmsCredits(user.id, body.bundle);
+  }
+
+  @Public()
+  @Get('service-charge')
+  @ApiOperation({ summary: 'Get service charge breakdown for a given amount (public)' })
+  @ApiQuery({ name: 'amount', required: true, type: Number, description: 'Amount in Naira' })
+  getServiceCharge(@Query('amount') amountStr: string) {
+    const amount = parseFloat(amountStr);
+    if (isNaN(amount) || amount <= 0) {
+      throw new BadRequestException('amount must be a positive number');
+    }
+    return this.networksService.getServiceChargeBreakdown(amount);
+  }
+
   @Public()
   @Get(':slug')
   @ApiOperation({ summary: 'Get network by slug (public — for member portal)' })
   async getBySlug(@Param('slug') slug: string) {
     return this.networksService.findBySlug(slug);
+  }
+
+  // --- Platform admin: monitoring & management ---
+
+  @Get('admin/monitoring')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get post-approval monitoring signals (platform admin only)' })
+  async getMonitoringSignals(@Req() req: Request & { user: CurrentUserData }) {
+    if (!(req as any).user?.isPlatformAdmin) {
+      throw new ForbiddenException('Platform admin access required');
+    }
+    return this.networksService.getMonitoringSignals();
+  }
+
+  @Get('admin/stats')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get platform-wide stats (platform admin only)' })
+  async getPlatformStats(@Req() req: Request & { user: CurrentUserData }) {
+    if (!(req as any).user?.isPlatformAdmin) {
+      throw new ForbiddenException('Platform admin access required');
+    }
+    return this.networksService.getPlatformStats();
+  }
+
+  @Get('admin/all')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List all networks (platform admin only)' })
+  async getAllNetworks(
+    @Req() req: Request & { user: CurrentUserData },
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('search') search?: string,
+  ) {
+    if (!(req as any).user?.isPlatformAdmin) {
+      throw new ForbiddenException('Platform admin access required');
+    }
+    return this.networksService.getAllNetworks(page, search);
+  }
+
+  @Get('admin/verifications')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List pending verification requests (platform admin only)' })
+  async getPendingVerifications(@Req() req: Request & { user: CurrentUserData }) {
+    if (!(req as any).user?.isPlatformAdmin) {
+      throw new ForbiddenException('Platform admin access required');
+    }
+    return this.networksService.getPendingVerifications();
   }
 }

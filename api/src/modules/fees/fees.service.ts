@@ -67,6 +67,12 @@ export class FeesService {
   }
 
   async create(networkId: string, dto: CreateFeeDto) {
+    if (dto.amount < 2000) {
+      throw new BadRequestException(
+        'Fee amount must be at least ₦2,000. Below this threshold the service charge becomes disproportionate for members.',
+      );
+    }
+
     return this.prisma.fee.create({
       data: {
         networkId,
@@ -89,6 +95,20 @@ export class FeesService {
 
     if (!fee) {
       throw new NotFoundException('Fee not found');
+    }
+
+    const changingStructural =
+      (dto.type !== undefined && dto.type !== fee.type) ||
+      (dto.paymentType !== undefined && dto.paymentType !== fee.paymentType) ||
+      (dto.frequency !== undefined && dto.frequency !== fee.frequency);
+
+    if (changingStructural) {
+      const assignmentCount = await this.prisma.feeAssignment.count({ where: { feeId: id } });
+      if (assignmentCount > 0) {
+        throw new BadRequestException(
+          'Fee type, payment type, and frequency cannot be changed after members have been assigned.',
+        );
+      }
     }
 
     return this.prisma.fee.update({ where: { id }, data: dto });
@@ -116,7 +136,7 @@ export class FeesService {
       throw new NotFoundException('Fee not found');
     }
 
-    const frontendUrl = this.configService.get<string>('app.frontendUrl') || 'https://collecta.africa';
+    const frontendUrl = this.configService.get<string>('app.frontendUrl') || 'https://collecta.services';
     const results = { assigned: 0, skipped: 0 };
 
     for (const memberId of dto.memberIds) {
@@ -149,7 +169,7 @@ export class FeesService {
                 fee.name,
                 Number(charge.amount),
                 charge.dueDate,
-                `${frontendUrl}/n/${network.slug}/pay/${charge.id}`,
+                `${frontendUrl}/pay/${network.slug}/pay/${charge.id}`,
               )
               .catch(() => {});
           }
@@ -179,7 +199,7 @@ export class FeesService {
             fee.name,
             Number(charge.amount),
             charge.dueDate,
-            `${frontendUrl}/n/${network.slug}/pay/${charge.id}`,
+            `${frontendUrl}/pay/${network.slug}/pay/${charge.id}`,
           )
           .catch(() => {});
       }

@@ -63,16 +63,22 @@ export class PaystackService {
 
   async createPaymentLink(charge: {
     id: string;
-    amount: number;
+    amount: number; // Naira — the org amount (excluding service charge)
+    serviceCharge: number; // Naira — Collecta's service charge
     description?: string;
     member: { email?: string; firstName: string; lastName: string };
     network: { paystackSubaccountCode?: string; name: string };
+    channels?: string[]; // e.g. ['card'] or ['bank_transfer'] — omit for all
   }): Promise<{ authorization_url: string; reference: string }> {
     const reference = `CHG-${charge.id}-${Date.now()}`;
 
+    const orgAmountKobo = Math.round(charge.amount * 100);
+    const serviceChargeKobo = Math.round(charge.serviceCharge * 100);
+    const totalKobo = orgAmountKobo + serviceChargeKobo;
+
     const payload: any = {
       email: charge.member.email || `${charge.id}@collecta.noreply`,
-      amount: Math.round(charge.amount * 100), // Convert to kobo
+      amount: totalKobo, // member pays total (org amount + service charge)
       reference,
       metadata: {
         chargeId: charge.id,
@@ -83,8 +89,16 @@ export class PaystackService {
       callback_url: `${this.configService.get<string>('app.frontendUrl')}/payment/callback`,
     };
 
+    if (charge.channels && charge.channels.length > 0) {
+      payload.channels = charge.channels;
+    }
+
+    // When a subaccount exists, use Paystack's split to route org amount to the
+    // subaccount and keep the service charge in the main (Collecta) account.
     if (charge.network.paystackSubaccountCode) {
       payload.subaccount = charge.network.paystackSubaccountCode;
+      payload.bearer = 'subaccount'; // Paystack fees borne by subaccount
+      payload.transaction_charge = serviceChargeKobo; // amount kept by main account
     }
 
     const result = await this.request<any>('POST', '/transaction/initialize', payload);

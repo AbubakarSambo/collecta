@@ -9,9 +9,11 @@ import { authApi } from '@/api/auth'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
+import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card'
 import { generateSlug } from '@/lib/utils'
+import { NETWORK_TYPES } from '@/lib/constants'
 
 const step1Schema = z.object({
   firstName: z.string().min(1, 'First name is required').max(50),
@@ -28,6 +30,7 @@ const step2Schema = z.object({
     .max(50)
     .regex(/^[a-z0-9-]+$/, 'Only lowercase letters, numbers, and hyphens'),
   networkDescription: z.string().max(300).optional(),
+  networkType: z.string().min(1, 'Organisation type is required'),
 })
 
 type Step1Data = z.infer<typeof step1Schema>
@@ -173,7 +176,7 @@ export function RegisterPage() {
                   <Label htmlFor="networkSlug">Network Slug</Label>
                   <div className="flex items-center gap-0.5">
                     <span className="flex h-10 items-center rounded-l-md border border-r-0 bg-gray-50 px-3 text-sm text-gray-500">
-                      collecta.africa/n/
+                      collecta.services/n/
                     </span>
                     <Input
                       id="networkSlug"
@@ -184,7 +187,7 @@ export function RegisterPage() {
                     />
                   </div>
                   <p className="text-xs text-gray-500">
-                    Your members will pay at: collecta.africa/n/<strong>{form2.watch('networkSlug') || 'yourslug'}</strong>
+                    Your members will pay at: collecta.services/n/<strong>{form2.watch('networkSlug') || 'yourslug'}</strong>
                   </p>
                 </div>
 
@@ -194,6 +197,17 @@ export function RegisterPage() {
                     id="networkDescription"
                     placeholder="Brief description of your community..."
                     {...form2.register('networkDescription')}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="networkType">Organisation Type</Label>
+                  <Select
+                    id="networkType"
+                    placeholder="Select organisation type"
+                    options={NETWORK_TYPES}
+                    error={form2.formState.errors.networkType?.message}
+                    {...form2.register('networkType')}
                   />
                 </div>
 
@@ -222,6 +236,11 @@ export function RegisterPage() {
               <Link to="/login" className="text-green-600 hover:underline font-medium">
                 Sign in
               </Link>
+            </p>
+            <p className="mt-3 text-center text-xs text-gray-400">
+              By registering you agree to our{' '}
+              <Link to="/terms" className="underline">Terms</Link>{' '}and{' '}
+              <Link to="/privacy" className="underline">Privacy Policy</Link>
             </p>
           </CardContent>
         </Card>

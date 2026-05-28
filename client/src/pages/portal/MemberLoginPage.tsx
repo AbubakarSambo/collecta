@@ -34,7 +34,7 @@ export function MemberLoginPage() {
       const member = res?.data?.member ?? res?.member
       if (member) {
         saveMemberSession(member)
-        navigate(`/n/${slug}/profile/${member.id}`)
+        navigate(`/pay/${slug}/profile/${member.id}`)
       } else {
         setError('Could not retrieve your account. Please try again.')
       }
@@ -65,7 +65,7 @@ export function MemberLoginPage() {
   // If already logged in, redirect straight to profile
   const existing = slug ? getMemberSession(slug) : null
   if (existing) {
-    navigate(`/n/${slug}/profile/${existing.id}`, { replace: true })
+    navigate(`/pay/${slug}/profile/${existing.id}`, { replace: true })
     return null
   }
 
@@ -73,7 +73,7 @@ export function MemberLoginPage() {
     <div className="flex min-h-[60vh] items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <button
-          onClick={() => navigate(`/n/${slug}`)}
+          onClick={() => navigate(`/pay/${slug}`)}
           className="mb-6 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
         >
           <ArrowLeft className="h-4 w-4" /> Back to portal

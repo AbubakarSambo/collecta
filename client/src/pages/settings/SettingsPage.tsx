@@ -1,10 +1,11 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { CheckCircle2, AlertCircle, Building2 } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Building2, MessageSquare, ShieldCheck, Clock, XCircle } from 'lucide-react'
 import { networksApi, paystackApi } from '@/api/networks'
 import { useNetwork } from '@/hooks/useNetwork'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -19,6 +20,15 @@ import { cn } from '@/lib/utils'
 const TABS = [
   { id: 'network', label: 'Network Info' },
   { id: 'paystack', label: 'Paystack' },
+  { id: 'sms', label: 'SMS Credits' },
+  { id: 'verification', label: 'Verification' },
+]
+
+const SMS_BUNDLES = [
+  { credits: 100, price: 600 },
+  { credits: 500, price: 3000 },
+  { credits: 1000, price: 6000 },
+  { credits: 5000, price: 28500, note: '5% discount' },
 ]
 
 const setupSchema = z.object({
@@ -34,7 +44,11 @@ type SetupFormData = z.infer<typeof setupSchema>
 export function SettingsPage() {
   const { network, isLoading: networkLoading } = useNetwork()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState('network')
+  const [searchParams] = useSearchParams()
+  const initialTab = TABS.some((t) => t.id === searchParams.get('tab'))
+    ? searchParams.get('tab')!
+    : 'network'
+  const [activeTab, setActiveTab] = useState(initialTab)
   const [verifiedName, setVerifiedName] = useState<string | null>(null)
 
   const networkForm = useForm({
@@ -102,6 +116,21 @@ export function SettingsPage() {
       toast.error(err?.response?.data?.message || 'Setup failed, please try again'),
   })
 
+  const { data: smsCreditsData, isLoading: smsLoading } = useQuery({
+    queryKey: ['sms-credits'],
+    queryFn: () => networksApi.getSmsCredits(),
+    enabled: activeTab === 'sms',
+  })
+
+  const topUpMutation = useMutation({
+    mutationFn: (bundle: number) => networksApi.topUpSmsCredits(bundle),
+    onSuccess: () => {
+      toast.success('SMS credits purchased successfully')
+      queryClient.invalidateQueries({ queryKey: ['sms-credits'] })
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Top-up failed'),
+  })
+
   const onSubmit = (data: SetupFormData) => {
     if (!verifiedName) {
       toast.error('Please verify your account first')
@@ -109,6 +138,25 @@ export function SettingsPage() {
     }
     setupMutation.mutate(data)
   }
+
+  const verificationForm = useForm({
+    defaultValues: {
+      organisationName: '',
+      cacNumber: '',
+      bvn: '',
+      nin: '',
+      contactAddress: '',
+    },
+  })
+
+  const verificationMutation = useMutation({
+    mutationFn: (data: any) => networksApi.submitVerification(data),
+    onSuccess: () => {
+      toast.success('Verification request submitted — our team will review within 24 hours')
+      queryClient.invalidateQueries({ queryKey: ['network', 'me'] })
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Submission failed'),
+  })
 
   return (
     <div className="p-6 space-y-6">
@@ -163,6 +211,71 @@ export function SettingsPage() {
             </form>
           </CardContent>
         </Card>
+      )}
+
+      {activeTab === 'sms' && (
+        <div className="space-y-4 max-w-2xl">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-green-600" />
+                SMS Credits
+              </CardTitle>
+              <CardDescription>
+                Purchase credits to send SMS reminders to your members
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Current balance */}
+              <div className="rounded-lg border bg-gray-50 px-4 py-3">
+                {smsLoading ? (
+                  <div className="h-6 w-40 animate-pulse rounded bg-gray-200" />
+                ) : (
+                  <p className="text-sm font-medium text-gray-900">
+                    <span className="text-2xl font-bold text-green-700">
+                      {(smsCreditsData?.credits ?? 0).toLocaleString()}
+                    </span>{' '}
+                    credits remaining
+                  </p>
+                )}
+              </div>
+
+              {/* Top-up bundles */}
+              <div>
+                <p className="mb-3 text-sm font-medium text-gray-700">Top-up bundles</p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {SMS_BUNDLES.map((bundle) => (
+                    <button
+                      key={bundle.credits}
+                      type="button"
+                      onClick={() => topUpMutation.mutate(bundle.credits)}
+                      disabled={topUpMutation.isPending}
+                      className="flex flex-col items-center rounded-lg border border-gray-200 bg-white px-3 py-4 text-center transition-colors hover:border-green-400 hover:bg-green-50 disabled:opacity-50"
+                    >
+                      <span className="text-lg font-bold text-gray-900">
+                        {bundle.credits.toLocaleString()}
+                      </span>
+                      <span className="text-xs text-gray-500">credits</span>
+                      <span className="mt-2 text-sm font-semibold text-green-700">
+                        ₦{bundle.price.toLocaleString()}
+                      </span>
+                      {bundle.note && (
+                        <span className="mt-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                          {bundle.note}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Info note */}
+              <p className="text-xs text-gray-500 border-t pt-4">
+                1 credit = 1 SMS. Credits are also earned automatically when members pay online (200 credits per ₦1,000 in service charges collected).
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {activeTab === 'paystack' && (
@@ -264,7 +377,7 @@ export function SettingsPage() {
                     </div>
                   )}
 
-                  <div className="pt-2">
+                  <div className="pt-2 space-y-2">
                     <Button
                       type="submit"
                       disabled={!verifiedName}
@@ -272,7 +385,108 @@ export function SettingsPage() {
                     >
                       Connect Account
                     </Button>
+                    {!verifiedName && (
+                      <p className="text-xs text-gray-400">
+                        Enter your account number and click Verify before connecting.
+                      </p>
+                    )}
                   </div>
+                </form>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Verification tab */}
+      {activeTab === 'verification' && (
+        <div className="space-y-4">
+          {network?.verificationStatus === 'APPROVED' && (
+            <Card className="border-green-200 bg-green-50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <ShieldCheck className="h-6 w-6 text-green-600 shrink-0" />
+                <div>
+                  <p className="font-semibold text-green-900">Verified</p>
+                  <p className="text-sm text-green-700">Your organisation has been verified by Collecta. Your portal is live.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {network?.verificationStatus === 'PENDING' && network?.hasSubmittedVerification && (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <Clock className="h-6 w-6 text-amber-600 shrink-0" />
+                <div>
+                  <p className="font-semibold text-amber-900">Review in progress</p>
+                  <p className="text-sm text-amber-700">Your verification request has been submitted. Our team will review within 24 hours.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {network?.verificationStatus === 'REJECTED' && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <XCircle className="h-6 w-6 text-red-600 shrink-0" />
+                <div>
+                  <p className="font-semibold text-red-900">Verification rejected</p>
+                  <p className="text-sm text-red-700">
+                    {network?.verificationNotes || 'Please contact support@collecta.services for details.'}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {network?.verificationStatus !== 'APPROVED' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Submit Verification Request</CardTitle>
+                <CardDescription>
+                  Collecta verifies organisations before activating their payment portal. Reviewed within 24 hours.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form
+                  onSubmit={verificationForm.handleSubmit((data) => verificationMutation.mutate(data))}
+                  className="space-y-4"
+                >
+                  <div className="space-y-1">
+                    <Label>Organisation name</Label>
+                    <Input
+                      {...verificationForm.register('organisationName', { required: true })}
+                      placeholder="Greenpark Estate Residents Association"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label>CAC number (optional)</Label>
+                      <Input {...verificationForm.register('cacNumber')} placeholder="RC1234567" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>BVN (individual collectors)</Label>
+                      <Input {...verificationForm.register('bvn')} placeholder="12345678901" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>NIN (optional)</Label>
+                    <Input {...verificationForm.register('nin')} placeholder="12345678901" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Contact address</Label>
+                    <Input
+                      {...verificationForm.register('contactAddress', { required: true })}
+                      placeholder="12 Main Street, Lagos"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    isLoading={verificationMutation.isPending}
+                    disabled={verificationMutation.isPending}
+                  >
+                    Submit for Review
+                  </Button>
                 </form>
               </CardContent>
             </Card>

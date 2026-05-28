@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaystackService } from '../paystack/paystack.service';
 import { EmailService } from '../email/email.service';
+import { calculateServiceCharge } from '../../common/utils/service-charge.util';
 
 @Injectable()
 export class PortalService {
@@ -12,6 +13,17 @@ export class PortalService {
     private emailService: EmailService,
     private configService: ConfigService,
   ) {}
+
+  private getTierTag(consecutiveMonthsPaid: number): { tier: 'TOP' | 'SECOND' | null; label: string | null } {
+    if (consecutiveMonthsPaid >= 12) {
+      return { tier: 'TOP', label: 'Top Payer — 12+ consecutive months' };
+    }
+    if (consecutiveMonthsPaid >= 6) {
+      const gap = 12 - consecutiveMonthsPaid;
+      return { tier: 'SECOND', label: `${consecutiveMonthsPaid} consecutive months — ${gap} away from Top Payer` };
+    }
+    return { tier: null, label: null };
+  }
 
   async getNetworkPortal(slug: string) {
     const network = await this.prisma.network.findUnique({
@@ -24,11 +36,30 @@ export class PortalService {
         logoUrl: true,
         currency: true,
         isActive: true,
+        isVerified: true,
+        verificationStatus: true,
+        paystackSubaccountCode: true,
       },
     });
 
     if (!network || !network.isActive) {
       throw new NotFoundException('Network not found or inactive');
+    }
+
+    if (network.verificationStatus !== 'APPROVED') {
+      return {
+        comingSoon: true,
+        reason: 'pending_verification',
+        network: { name: network.name, logoUrl: network.logoUrl },
+      };
+    }
+
+    if (!network.paystackSubaccountCode) {
+      return {
+        comingSoon: true,
+        reason: 'no_bank_account',
+        network: { name: network.name, logoUrl: network.logoUrl },
+      };
     }
 
     // Get open fees
@@ -43,7 +74,19 @@ export class PortalService {
       },
     });
 
-    return { network, openFees };
+    return {
+      comingSoon: false,
+      network: {
+        id: network.id,
+        name: network.name,
+        slug: network.slug,
+        description: network.description,
+        logoUrl: network.logoUrl,
+        currency: network.currency,
+        isVerified: network.isVerified,
+      },
+      openFees,
+    };
   }
 
   async getMemberProfile(slug: string, memberId: string) {
@@ -102,6 +145,8 @@ export class PortalService {
           ? 'You have 1 overdue charge. Pay now to stay in good standing.'
           : `You have ${chargesOverdue} overdue charges. Please settle them to avoid penalties.`;
 
+    const tierTag = this.getTierTag(member.consecutiveMonthsPaid);
+
     return {
       member: {
         id: member.id,
@@ -110,6 +155,7 @@ export class PortalService {
         unit: member.unit,
         memberCode: member.memberCode,
         joinedAt: member.joinedAt,
+        consecutiveMonthsPaid: member.consecutiveMonthsPaid,
       },
       charges: member.charges,
       summary: {
@@ -124,12 +170,14 @@ export class PortalService {
         membersCurrentWithPayments,
       },
       motivationalMessage,
+      tierTag,
     };
   }
 
   async getCharge(slug: string, chargeId: string) {
     const network = await this.prisma.network.findUnique({
       where: { slug: slug.toLowerCase() },
+      select: { id: true, name: true, isVerified: true, country: true, bankAccountName: true, settlementBank: true },
     });
 
     if (!network) {
@@ -138,7 +186,10 @@ export class PortalService {
 
     const charge = await this.prisma.charge.findFirst({
       where: { id: chargeId, networkId: network.id },
-      include: { fee: { select: { name: true } } },
+      include: {
+        fee: { select: { name: true } },
+        member: { select: { firstName: true, lastName: true } },
+      },
     });
 
     if (!charge) {
@@ -153,16 +204,33 @@ export class PortalService {
       remainingAmount: Number(charge.amount) - Number(charge.paidAmount),
       status: charge.status,
       dueDate: charge.dueDate,
+      memberName: charge.member
+        ? `${charge.member.firstName} ${charge.member.lastName}`
+        : null,
+      network: {
+        name: network.name,
+        isVerified: network.isVerified,
+        country: network.country || 'NG',
+        kenyaEnabled: this.configService.get<boolean>('app.kenyaEnabled') || false,
+        bankAccountName: network.bankAccountName,
+        settlementBank: network.settlementBank,
+      },
     };
   }
 
-  async initiatePayment(slug: string, chargeId: string, requestedAmount?: number) {
+  async initiatePayment(slug: string, chargeId: string, requestedAmount?: number, paymentMethod?: 'card' | 'bank_transfer' | 'ussd' | 'mobile_money') {
     const network = await this.prisma.network.findUnique({
       where: { slug: slug.toLowerCase() },
     });
 
     if (!network) {
       throw new NotFoundException('Network not found');
+    }
+
+    if (!network.paystackSubaccountCode) {
+      throw new BadRequestException(
+        'This network has not connected a bank account. Payments cannot be processed until a bank account is set up.',
+      );
     }
 
     const charge = await this.prisma.charge.findFirst({
@@ -194,9 +262,12 @@ export class PortalService {
       payAmount = requestedAmount;
     }
 
+    const serviceCharge = calculateServiceCharge(payAmount);
+
     const { authorization_url, reference } = await this.paystackService.createPaymentLink({
       id: charge.id,
       amount: payAmount,
+      serviceCharge,
       description: charge.description || charge.fee?.name,
       member: {
         email: charge.member.email,
@@ -207,11 +278,18 @@ export class PortalService {
         paystackSubaccountCode: network.paystackSubaccountCode,
         name: network.name,
       },
+      channels: paymentMethod && paymentMethod !== 'card'
+        ? [paymentMethod === 'mobile_money' ? 'mobile_money' : paymentMethod]
+        : undefined,
     });
 
     await this.prisma.charge.update({
       where: { id: chargeId },
-      data: { paystackPaymentLink: authorization_url, paystackReference: reference },
+      data: {
+        paystackPaymentLink: authorization_url,
+        paystackReference: reference,
+        serviceCharge,
+      },
     });
 
     return {
@@ -220,6 +298,8 @@ export class PortalService {
       charge: {
         id: charge.id,
         amount: payAmount,
+        serviceCharge,
+        total: payAmount + serviceCharge,
         feeName: charge.fee?.name || charge.description,
         memberName: `${charge.member.firstName} ${charge.member.lastName}`,
       },
@@ -237,6 +317,12 @@ export class PortalService {
 
     if (!network || !network.isActive) {
       throw new NotFoundException('Network not found or inactive');
+    }
+
+    if (!network.paystackSubaccountCode) {
+      throw new BadRequestException(
+        'This network has not connected a bank account. Payments cannot be processed until a bank account is set up.',
+      );
     }
 
     const fee = await this.prisma.fee.findFirst({
@@ -286,9 +372,12 @@ export class PortalService {
       },
     });
 
+    const serviceCharge = calculateServiceCharge(payAmount);
+
     const { authorization_url, reference } = await this.paystackService.createPaymentLink({
       id: charge.id,
       amount: payAmount,
+      serviceCharge,
       description: fee.name,
       member: { email: payer.email, firstName: member.firstName, lastName: member.lastName },
       network: { paystackSubaccountCode: network.paystackSubaccountCode, name: network.name },
@@ -296,21 +385,62 @@ export class PortalService {
 
     await this.prisma.charge.update({
       where: { id: charge.id },
-      data: { paystackReference: reference },
+      data: { paystackReference: reference, serviceCharge },
     });
 
-    return { paymentUrl: authorization_url };
+    return { paymentUrl: authorization_url, serviceCharge, total: payAmount + serviceCharge };
   }
 
   async verifyPayment(reference: string) {
     // Check if already recorded (idempotent)
     const existing = await this.prisma.payment.findFirst({
       where: { paystackReference: reference },
-      include: { charge: { include: { fee: true } } },
+      include: {
+        charge: { include: { fee: true, network: { select: { name: true, slug: true } } } },
+        member: { select: { consecutiveMonthsPaid: true, firstName: true, lastName: true } },
+      },
     });
 
     if (existing) {
-      return { status: existing.charge.status, alreadyRecorded: true };
+      const existingOutstanding = await this.prisma.charge.findMany({
+        where: {
+          memberId: existing.memberId,
+          networkId: existing.networkId,
+          status: { in: ['PENDING', 'OVERDUE', 'PARTIALLY_PAID'] },
+          id: { not: existing.chargeId },
+        },
+        orderBy: { dueDate: 'asc' },
+        take: 3,
+        select: {
+          id: true,
+          amount: true,
+          paidAmount: true,
+          dueDate: true,
+          status: true,
+          description: true,
+          fee: { select: { name: true } },
+        },
+      });
+
+      return {
+        status: existing.charge.status,
+        alreadyRecorded: true,
+        tierTag: this.getTierTag(existing.member?.consecutiveMonthsPaid ?? 0),
+        feeName: existing.charge.fee?.name || existing.charge.description || 'Payment',
+        amount: Number(existing.amount),
+        networkName: existing.charge.network?.name,
+        networkSlug: existing.charge.network?.slug,
+        memberName: existing.member
+          ? `${existing.member.firstName} ${existing.member.lastName}`
+          : undefined,
+        outstandingCharges: existingOutstanding.map((c) => ({
+          id: c.id,
+          feeName: c.fee?.name || c.description || 'Charge',
+          amount: Number(c.amount) - Number(c.paidAmount),
+          dueDate: c.dueDate,
+          status: c.status,
+        })),
+      };
     }
 
     // Verify with Paystack
@@ -364,7 +494,7 @@ export class PortalService {
 
     if (charge.member.email) {
       const frontendUrl = this.configService.get<string>('app.frontendUrl') || 'http://localhost:5173';
-      const profileUrl = `${frontendUrl}/n/${charge.network.slug}/profile/${charge.member.id}`;
+      const profileUrl = `${frontendUrl}/pay/${charge.network.slug}/profile/${charge.member.id}`;
       const feeName = charge.fee?.name || charge.description || 'Payment';
 
       this.emailService
@@ -380,7 +510,123 @@ export class PortalService {
         .catch(() => {});
     }
 
-    return { status: 'success' };
+    const updatedMember = await this.prisma.member.findUnique({
+      where: { id: charge.memberId },
+      select: { consecutiveMonthsPaid: true },
+    });
+
+    const feeName = charge.fee?.name || charge.description || 'Payment';
+    const memberName = `${charge.member.firstName} ${charge.member.lastName}`;
+
+    // Fetch remaining outstanding charges for directional step on confirmation screen
+    const outstandingCharges = await this.prisma.charge.findMany({
+      where: {
+        memberId: charge.memberId,
+        networkId: charge.networkId,
+        status: { in: ['PENDING', 'OVERDUE', 'PARTIALLY_PAID'] },
+        id: { not: charge.id },
+      },
+      orderBy: { dueDate: 'asc' },
+      take: 3,
+      select: {
+        id: true,
+        amount: true,
+        paidAmount: true,
+        dueDate: true,
+        status: true,
+        description: true,
+        fee: { select: { name: true } },
+      },
+    });
+
+    return {
+      status: 'success',
+      tierTag: this.getTierTag(updatedMember?.consecutiveMonthsPaid ?? 0),
+      feeName,
+      amount,
+      networkName: charge.network.name,
+      networkSlug: charge.network.slug,
+      memberName,
+      outstandingCharges: outstandingCharges.map((c) => ({
+        id: c.id,
+        feeName: c.fee?.name || c.description || 'Charge',
+        amount: Number(c.amount) - Number(c.paidAmount),
+        dueDate: c.dueDate,
+        status: c.status,
+      })),
+    };
+  }
+
+  async getMemberPaymentHistoryByEmail(slug: string, email: string) {
+    const network = await this.prisma.network.findUnique({
+      where: { slug: slug.toLowerCase() },
+      select: { id: true, name: true },
+    });
+
+    if (!network) {
+      throw new NotFoundException('Network not found');
+    }
+
+    const member = await this.prisma.member.findFirst({
+      where: { networkId: network.id, email: email.toLowerCase() },
+      select: { id: true, firstName: true, lastName: true, consecutiveMonthsPaid: true },
+    });
+
+    if (!member) {
+      throw new NotFoundException('No account found for that email address');
+    }
+
+    const [confirmedPayments, outstandingCharges] = await Promise.all([
+      this.prisma.payment.findMany({
+        where: { memberId: member.id, networkId: network.id },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          charge: {
+            select: { id: true, description: true, fee: { select: { name: true } } },
+          },
+        },
+      }),
+      this.prisma.charge.findMany({
+        where: {
+          memberId: member.id,
+          networkId: network.id,
+          status: { in: ['PENDING', 'OVERDUE', 'PARTIALLY_PAID'] },
+        },
+        orderBy: { dueDate: 'asc' },
+        select: {
+          id: true,
+          amount: true,
+          paidAmount: true,
+          dueDate: true,
+          status: true,
+          description: true,
+          fee: { select: { name: true } },
+        },
+      }),
+    ]);
+
+    return {
+      member: { firstName: member.firstName, lastName: member.lastName },
+      networkName: network.name,
+      confirmedPayments: confirmedPayments.map((p) => ({
+        id: p.id,
+        amount: Number(p.amount),
+        method: p.method,
+        reference: p.paystackReference,
+        feeName: p.charge?.fee?.name || p.charge?.description || 'Payment',
+        paidAt: p.createdAt,
+      })),
+      outstandingCharges: outstandingCharges.map((c) => ({
+        id: c.id,
+        feeName: c.fee?.name || c.description || 'Charge',
+        amount: Number(c.amount),
+        paidAmount: Number(c.paidAmount),
+        remainingAmount: Number(c.amount) - Number(c.paidAmount),
+        dueDate: c.dueDate,
+        status: c.status,
+      })),
+      tierTag: this.getTierTag(member.consecutiveMonthsPaid),
+    };
   }
 
   async findMemberByEmail(slug: string, email: string) {
@@ -443,5 +689,27 @@ export class PortalService {
         slug: network.slug,
       },
     };
+  }
+
+  async smsOptOut(slug: string, memberId: string) {
+    const network = await this.prisma.network.findUnique({
+      where: { slug: slug.toLowerCase() },
+      select: { id: true },
+    });
+
+    if (!network) throw new NotFoundException('Network not found');
+
+    const member = await this.prisma.member.findFirst({
+      where: { id: memberId, networkId: network.id },
+    });
+
+    if (!member) throw new NotFoundException('Member not found');
+
+    await this.prisma.member.update({
+      where: { id: memberId },
+      data: { smsOptedOut: true, smsOptedOutAt: new Date() },
+    });
+
+    return { message: 'You have been unsubscribed from SMS reminders.' };
   }
 }

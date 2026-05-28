@@ -1,11 +1,13 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowLeft, Send, Link } from 'lucide-react'
+import { ArrowLeft, Send, Link, Pencil, X, Check } from 'lucide-react'
 import { membersApi } from '@/api/members'
 import { remindersApi } from '@/api/reminders'
 import { useNetwork } from '@/hooks/useNetwork'
 import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { StatusBadge } from '@/components/ui/Badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -16,12 +18,24 @@ export function MemberDetailPage() {
   const navigate = useNavigate()
   const { networkId } = useNetwork()
   const queryClient = useQueryClient()
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState({ phone: '', email: '', unit: '', memberCode: '', firstName: '', lastName: '' })
 
   const { data, isLoading } = useQuery({
     queryKey: ['member', networkId, id],
     queryFn: () => membersApi.getById(networkId!, id!),
     enabled: !!networkId && !!id,
     select: (r) => r.data,
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: (payload: typeof form) => membersApi.update(networkId!, id!, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member', networkId, id] })
+      toast.success('Member updated')
+      setEditing(false)
+    },
+    onError: () => toast.error('Failed to update member'),
   })
 
   const reminderMutation = useMutation({
@@ -42,6 +56,18 @@ export function MemberDetailPage() {
   if (isLoading || !data) return <FullPageSpinner />
 
   const member = data
+
+  const startEditing = () => {
+    setForm({
+      phone: member.phone || '',
+      email: member.email || '',
+      unit: member.unit || '',
+      memberCode: member.memberCode || '',
+      firstName: member.firstName || '',
+      lastName: member.lastName || '',
+    })
+    setEditing(true)
+  }
   const charges = member.charges || []
   const payments = member.payments || []
   const paid = charges.filter((c: any) => c.status === 'PAID').length
@@ -95,35 +121,81 @@ export function MemberDetailPage() {
       {/* Member Info */}
       <Card>
         <CardHeader>
-          <CardTitle>Contact Info</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Contact Info</CardTitle>
+            {!editing ? (
+              <Button variant="ghost" size="sm" onClick={startEditing}>
+                <Pencil className="h-4 w-4" />
+              </Button>
+            ) : (
+              <div className="flex gap-1">
+                <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+                <Button size="sm" onClick={() => updateMutation.mutate(form)} isLoading={updateMutation.isPending}>
+                  <Check className="h-4 w-4" />
+                  Save
+                </Button>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          <dl className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <dt className="text-gray-500">Email</dt>
-              <dd className="font-medium">{member.email || '—'}</dd>
+          {editing ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500">First Name</label>
+                <Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500">Last Name</label>
+                <Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500">Email</label>
+                <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500">Phone</label>
+                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="2348XXXXXXXXXX" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500">Unit</label>
+                <Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500">Member Code</label>
+                <Input value={form.memberCode} onChange={(e) => setForm({ ...form, memberCode: e.target.value })} />
+              </div>
             </div>
-            <div>
-              <dt className="text-gray-500">Phone</dt>
-              <dd className="font-medium">{member.phone || '—'}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-500">Unit</dt>
-              <dd className="font-medium">{member.unit || '—'}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-500">Member Code</dt>
-              <dd className="font-medium">{member.memberCode || '—'}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-500">Status</dt>
-              <dd><StatusBadge status={member.status} /></dd>
-            </div>
-            <div>
-              <dt className="text-gray-500">Joined</dt>
-              <dd className="font-medium">{formatDate(member.joinedAt)}</dd>
-            </div>
-          </dl>
+          ) : (
+            <dl className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <dt className="text-gray-500">Email</dt>
+                <dd className="font-medium">{member.email || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Phone</dt>
+                <dd className="font-medium">{member.phone || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Unit</dt>
+                <dd className="font-medium">{member.unit || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Member Code</dt>
+                <dd className="font-medium">{member.memberCode || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Status</dt>
+                <dd><StatusBadge status={member.status} /></dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Joined</dt>
+                <dd className="font-medium">{formatDate(member.joinedAt)}</dd>
+              </div>
+            </dl>
+          )}
         </CardContent>
       </Card>
 
