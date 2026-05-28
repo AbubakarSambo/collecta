@@ -99,7 +99,10 @@ export function MembersPage() {
   })
 
   const onSubmit = (data: MemberForm) => {
-    createMutation.mutate(data)
+    const payload = Object.fromEntries(
+      Object.entries(data).filter(([, v]) => v !== '' && v !== undefined)
+    ) as MemberForm
+    createMutation.mutate(payload)
     reset()
   }
 

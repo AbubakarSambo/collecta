@@ -53,7 +53,7 @@ export function PaymentHistoryPage() {
     return (
       <div className="max-w-md mx-auto space-y-6">
         <Link
-          to={`/n/${slug}`}
+          to={`/pay/${slug}`}
           className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
         >
           <ArrowLeft className="h-4 w-4" /> Back to portal
@@ -142,7 +142,7 @@ export function PaymentHistoryPage() {
                 <div className="flex flex-col items-end gap-1">
                   <p className="font-bold text-sm">{formatCurrency(c.remainingAmount)}</p>
                   <StatusBadge status={c.status} />
-                  <Link to={`/n/${slug}/pay/${c.id}`}>
+                  <Link to={`/pay/${slug}/pay/${c.id}`}>
                     <Button size="sm" className="mt-1">Pay Now</Button>
                   </Link>
                 </div>

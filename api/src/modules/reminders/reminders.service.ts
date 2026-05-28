@@ -655,7 +655,12 @@ export class RemindersService {
       const AfricasTalking = require('africastalking');
       const at = AfricasTalking({ apiKey, username });
       const result = await at.SMS.send({ to: [phone], message });
-      this.logger.log(`sendSms: AT response=${JSON.stringify(result)}`);
+      const recipient = result?.SMSMessageData?.Recipients?.[0];
+      if (recipient && recipient.statusCode !== 101) {
+        this.logger.warn(`sendSms: AT rejected ${phone} — status=${recipient.status} (${recipient.statusCode})`);
+        throw new Error(`AT delivery failed: ${recipient.status}`);
+      }
+      this.logger.log(`sendSms: delivered to ${phone}`);
     } catch (err) {
       this.logger.error(`Failed to send SMS to ${phone}: ${err.message}`);
       throw err;

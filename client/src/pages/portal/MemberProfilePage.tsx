@@ -34,7 +34,7 @@ export function MemberProfilePage() {
 
   const handleLogout = () => {
     if (slug) clearMemberSession(slug)
-    navigate(`/n/${slug}`)
+    navigate(`/pay/${slug}`)
   }
 
   const { data, isLoading } = useQuery({
@@ -146,7 +146,7 @@ export function MemberProfilePage() {
                     <p className="font-bold">{formatCurrency(Number(c.amount))}</p>
                     <StatusBadge status={c.status} />
                     {(c.status === 'PENDING' || c.status === 'OVERDUE' || c.status === 'PARTIALLY_PAID') && (
-                      <Link to={`/n/${slug}/pay/${c.id}`}>
+                      <Link to={`/pay/${slug}/pay/${c.id}`}>
                         <Button size="sm" variant="outline" className="mt-1">
                           Pay Now
                         </Button>

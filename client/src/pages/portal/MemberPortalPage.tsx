@@ -178,7 +178,7 @@ export function MemberPortalPage() {
     onSuccess: (res) => {
       const memberId = res?.data?.member?.id ?? res?.member?.id
       if (memberId) {
-        navigate(`/n/${slug}/profile/${memberId}`)
+        navigate(`/pay/${slug}/profile/${memberId}`)
       } else {
         setLookupError('Could not find your account. Please try again.')
       }
@@ -256,7 +256,7 @@ export function MemberPortalPage() {
 
       {/* Payment history link */}
       <div className="text-center">
-        <Link to={`/n/${slug}/history`} className="text-sm text-gray-400 hover:underline">
+        <Link to={`/pay/${slug}/history`} className="text-sm text-gray-400 hover:underline">
           View my payment history by email
         </Link>
       </div>
@@ -276,7 +276,7 @@ export function MemberPortalPage() {
                 <p className="text-xs text-gray-500">Signed in</p>
               </div>
             </div>
-            <Button onClick={() => navigate(`/n/${slug}/profile/${existingSession.id}`)}>
+            <Button onClick={() => navigate(`/pay/${slug}/profile/${existingSession.id}`)}>
               View my payments
             </Button>
           </CardContent>
@@ -290,7 +290,7 @@ export function MemberPortalPage() {
             <p className="text-sm text-gray-500">
               Sign in with your email to view your charges and payment history.
             </p>
-            <Button className="w-full" onClick={() => navigate(`/n/${slug}/login`)}>
+            <Button className="w-full" onClick={() => navigate(`/pay/${slug}/login`)}>
               Sign in
             </Button>
             <p className="text-center text-xs text-gray-400">
