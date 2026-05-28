@@ -113,7 +113,7 @@ export function PaymentPage() {
                 <span className="font-semibold flex items-center gap-1">
                   {data.network?.name}
                   {data.network?.isVerified && (
-                    <ShieldCheck className="h-3.5 w-3.5 text-green-600" title="Verified by Collecta" />
+                    <ShieldCheck className="h-3.5 w-3.5 text-green-600" />
                   )}
                 </span>
               </div>
