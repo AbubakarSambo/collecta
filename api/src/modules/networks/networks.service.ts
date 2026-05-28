@@ -114,6 +114,20 @@ export class NetworksService {
       },
     });
 
+    // If already verified, now both conditions are met — send the onboarding email
+    if (network.isVerified && network.admin?.email) {
+      const portalUrl = `${process.env.FRONTEND_URL || 'https://collecta.services'}/pay/${network.slug}`;
+      const admin = await this.prisma.user.findUnique({
+        where: { id: network.adminId },
+        select: { email: true, firstName: true },
+      });
+      if (admin?.email) {
+        this.emailService
+          .sendOnboardingTemplates(admin.email, admin.firstName, network.name, network.networkType, portalUrl)
+          .catch(() => {});
+      }
+    }
+
     return {
       subaccountCode: result.subaccount_code,
       accountName: verification.account_name,
@@ -190,8 +204,8 @@ export class NetworksService {
       }),
     ]);
 
-    // Send onboarding templates email to admin
-    if (network.admin?.email) {
+    // Send onboarding email — only if bank account is also connected
+    if (network.admin?.email && network.paystackSubaccountCode) {
       const portalUrl = `${process.env.FRONTEND_URL || 'https://collecta.services'}/pay/${network.slug}`;
       this.emailService
         .sendOnboardingTemplates(
@@ -201,6 +215,28 @@ export class NetworksService {
           network.networkType,
           portalUrl,
         )
+        .catch(() => {});
+    } else if (network.admin?.email && !network.paystackSubaccountCode) {
+      this.emailService
+        .sendEmail({
+          to: network.admin.email,
+          subject: `${network.name} is verified — one step left`,
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>Your organisation is verified, ${network.admin.firstName}!</h2>
+              <p><strong>${network.name}</strong> has been verified by Collecta.</p>
+              <p>To go live and start accepting payments, connect a bank account in your settings.</p>
+              <div style="margin: 32px 0;">
+                <a href="${process.env.FRONTEND_URL || 'https://collecta.services'}/settings?tab=paystack"
+                   style="display: inline-block; background: #16a34a; color: white; padding: 12px 24px;
+                          text-decoration: none; border-radius: 6px; font-weight: 600;">
+                  Connect bank account
+                </a>
+              </div>
+              <p style="color: #6b7280; font-size: 12px;">Collecta — collecta.services</p>
+            </div>
+          `,
+        })
         .catch(() => {});
     }
 

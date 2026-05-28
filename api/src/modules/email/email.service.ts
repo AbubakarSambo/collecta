@@ -17,7 +17,7 @@ export class EmailService {
       this.configService.get<string>('resend.frontendUrl') || 'http://localhost:5173';
   }
 
-  private async sendEmail(options: { to: string; subject: string; html: string }): Promise<void> {
+  async sendEmail(options: { to: string; subject: string; html: string }): Promise<void> {
     const { data, error } = await this.resend.emails.send({
       from: this.fromEmail,
       ...options,

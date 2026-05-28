@@ -91,7 +91,7 @@ export function DashboardPage() {
   return (
     <div className="p-6 space-y-6">
       {/* Onboarding banner — shown once after verification approval */}
-      {network?.verificationStatus === 'APPROVED' && network?.isVerified && !onboardingDismissed && (
+      {network?.verificationStatus === 'APPROVED' && network?.isVerified && !!network?.paystackSubaccountCode && !onboardingDismissed && (
         <div className="rounded-lg border border-green-300 bg-green-50 px-4 py-4 space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -168,7 +168,7 @@ export function DashboardPage() {
       )}
 
       {/* Permanent templates section shown after onboarding is dismissed (or after verification) */}
-      {network?.verificationStatus === 'APPROVED' && network?.isVerified && onboardingDismissed && (
+      {network?.verificationStatus === 'APPROVED' && network?.isVerified && !!network?.paystackSubaccountCode && onboardingDismissed && (
         <div className="rounded-lg border bg-white px-4 py-3">
           <button
             onClick={() => setTemplatesOpen((o) => !o)}
@@ -230,6 +230,21 @@ export function DashboardPage() {
         </div>
       )}
 
+      {/* Bank connected but not yet verified */}
+      {!!network?.paystackSubaccountCode && !network?.isVerified && network?.verificationStatus !== 'REJECTED' && (
+        <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 flex items-center justify-between gap-4">
+          <p className="text-sm text-orange-800">
+            <span className="font-semibold">Verify your organisation to go live.</span> Your bank account is connected but your portal won't accept payments until your organisation is verified.
+          </p>
+          <a
+            href="/settings?tab=verification"
+            className="shrink-0 text-xs font-medium text-orange-800 underline hover:text-orange-900"
+          >
+            Get verified
+          </a>
+        </div>
+      )}
+
       {/* Bank account banner — verified but no bank account connected */}
       {network?.isVerified && !network?.paystackSubaccountCode && (
         <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 flex items-center justify-between gap-4">
@@ -262,7 +277,7 @@ export function DashboardPage() {
       {!network?.isVerified && network?.hasSubmittedVerification && network?.verificationStatus === 'PENDING' && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex items-center justify-between gap-4">
           <p className="text-sm text-amber-800">
-            <span className="font-semibold">Verification pending</span> — Your portal will go live once our team reviews your organisation. You can add members and create fees while you wait. Usually completed within 24 hours.
+            <span className="font-semibold">Verification pending</span> — While you wait, <a href="/settings?tab=paystack" className="underline font-medium">connect a bank account</a> so your portal is ready to go live the moment you're approved. Usually reviewed within 24 hours.
           </p>
           <a
             href="/settings?tab=verification"

@@ -110,6 +110,7 @@ export function SettingsPage() {
     mutationFn: (data: SetupFormData) => networksApi.setupPaystack(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['paystack-status'] })
+      queryClient.invalidateQueries({ queryKey: ['network', 'me'] })
       toast.success('Paystack connected — payments will go directly to your bank account')
     },
     onError: (err: any) =>
@@ -401,7 +402,7 @@ export function SettingsPage() {
       {/* Verification tab */}
       {activeTab === 'verification' && (
         <div className="space-y-4">
-          {network?.verificationStatus === 'APPROVED' && (
+          {network?.verificationStatus === 'APPROVED' && paystackStatus?.isSetup && (
             <Card className="border-green-200 bg-green-50">
               <CardContent className="p-4 flex items-center gap-3">
                 <ShieldCheck className="h-6 w-6 text-green-600 shrink-0" />
