@@ -100,6 +100,7 @@ model Member {
   phone                 String?
   memberCode            String?
   unit                  String?
+  notes                 String?
   status                MemberStatus    @default(ACTIVE)
   isGuest               Boolean         @default(false)
   isBlacklisted         Boolean         @default(false)
@@ -133,6 +134,7 @@ model Fee {
   amount           Decimal        @default(0) @db.Decimal(12, 2)
   frequency        FeeFrequency   @default(MONTHLY)
   dueDay           Int            @default(1)
+  startDate        DateTime?
   windowStart      DateTime?
   windowEnd        DateTime?
   penaltyEnabled   Boolean        @default(false)
@@ -294,6 +296,12 @@ enum NetworkType {
   CHAMA
   SUPPLIER
   DEBT
+  GYM
+  COMMUNITY
+  SCHOOL
+  CHURCH
+  SPORTS
+  COOPERATIVE
 }
 
 enum VerificationStatus {

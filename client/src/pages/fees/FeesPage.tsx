@@ -40,6 +40,7 @@ export function FeesPage() {
     amount: number
     frequency: string
     dueDay: number
+    startDate?: string
     description?: string
     penaltyEnabled?: boolean
     penaltyPercent?: number
@@ -117,7 +118,9 @@ export function FeesPage() {
                       {formatCurrency(Number(fee.amount))}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      {fee.frequency} — Due day {fee.dueDay}
+                      {fee.frequency === 'ONE_TIME'
+                        ? `One-time${fee.startDate ? ` — ${new Date(fee.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}`
+                        : `${fee.frequency} — Due day ${fee.dueDay}${fee.startDate ? ` · From ${new Date(fee.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}`}
                     </p>
                     {fee.description && (
                       <p className="text-xs text-gray-500 mt-1">{fee.description}</p>
@@ -197,16 +200,32 @@ export function FeesPage() {
             </div>
           </div>
           {watch('type') === 'ASSIGNED' && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Frequency</Label>
-                <Select options={FEE_FREQUENCIES} {...register('frequency')} />
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Frequency</Label>
+                  <Select options={FEE_FREQUENCIES} {...register('frequency')} />
+                </div>
+                {watch('frequency') !== 'ONE_TIME' && (
+                  <div>
+                    <Label>Due Day (of month)</Label>
+                    <Input type="number" min="1" max="28" placeholder="1" {...register('dueDay', { valueAsNumber: true })} />
+                  </div>
+                )}
               </div>
               <div>
-                <Label>Due Day (of month)</Label>
-                <Input type="number" min="1" max="28" placeholder="1" {...register('dueDay', { valueAsNumber: true })} />
+                <Label>{watch('frequency') === 'ONE_TIME' ? 'Charge Date' : 'Start Date (optional)'}</Label>
+                <Input
+                  type="date"
+                  {...register('startDate')}
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  {watch('frequency') === 'ONE_TIME'
+                    ? 'The specific date this one-off charge is due.'
+                    : 'When charges begin for this fee. Defaults to today if left blank.'}
+                </p>
               </div>
-            </div>
+            </>
           )}
           <div>
             <Label>Description (optional)</Label>

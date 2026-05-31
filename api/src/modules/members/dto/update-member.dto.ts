@@ -42,4 +42,10 @@ export class UpdateMemberDto {
   @IsOptional()
   @IsEnum(MemberStatus)
   status?: MemberStatus;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  notes?: string;
 }

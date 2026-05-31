@@ -22,6 +22,7 @@ import { PaymentsPage } from '@/pages/payments/PaymentsPage'
 import { RemindersPage } from '@/pages/reminders/RemindersPage'
 import { ReportsPage } from '@/pages/reports/ReportsPage'
 import { SettingsPage } from '@/pages/settings/SettingsPage'
+import { FaqPage } from '@/pages/faq/FaqPage'
 
 // Portal pages (public)
 import { MemberPortalPage } from '@/pages/portal/MemberPortalPage'
@@ -95,6 +96,7 @@ function App() {
             <Route path="/reminders" element={<RemindersPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/faq" element={<FaqPage />} />
           </Route>
         </Route>
 

@@ -1,4 +1,4 @@
-export type NetworkType = 'ESTATE' | 'CHAMA' | 'SUPPLIER' | 'DEBT'
+export type NetworkType = 'ESTATE' | 'CHAMA' | 'SUPPLIER' | 'DEBT' | 'GYM' | 'COMMUNITY' | 'SCHOOL' | 'CHURCH' | 'SPORTS' | 'COOPERATIVE'
 
 export interface NetworkVocab {
   memberNoun: string
@@ -31,6 +31,42 @@ export const NETWORK_VOCAB: Record<NetworkType, NetworkVocab> = {
     memberNounPlural: 'borrowers',
     feeNoun: 'payment',
     feeNounPlural: 'payments',
+  },
+  GYM: {
+    memberNoun: 'member',
+    memberNounPlural: 'members',
+    feeNoun: 'membership fee',
+    feeNounPlural: 'membership fees',
+  },
+  COMMUNITY: {
+    memberNoun: 'member',
+    memberNounPlural: 'members',
+    feeNoun: 'dues',
+    feeNounPlural: 'dues',
+  },
+  SCHOOL: {
+    memberNoun: 'student',
+    memberNounPlural: 'students',
+    feeNoun: 'levy',
+    feeNounPlural: 'levies',
+  },
+  CHURCH: {
+    memberNoun: 'member',
+    memberNounPlural: 'members',
+    feeNoun: 'offering',
+    feeNounPlural: 'offerings',
+  },
+  SPORTS: {
+    memberNoun: 'player',
+    memberNounPlural: 'players',
+    feeNoun: 'dues',
+    feeNounPlural: 'dues',
+  },
+  COOPERATIVE: {
+    memberNoun: 'member',
+    memberNounPlural: 'members',
+    feeNoun: 'contribution',
+    feeNounPlural: 'contributions',
   },
 }
 

@@ -8,6 +8,7 @@ import { remindersApi } from '@/api/reminders'
 import { useNetwork } from '@/hooks/useNetwork'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { Textarea } from '@/components/ui/Textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { StatusBadge } from '@/components/ui/Badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -19,7 +20,7 @@ export function MemberDetailPage() {
   const { networkId } = useNetwork()
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
-  const [form, setForm] = useState({ phone: '', email: '', unit: '', memberCode: '', firstName: '', lastName: '' })
+  const [form, setForm] = useState({ phone: '', email: '', unit: '', memberCode: '', firstName: '', lastName: '', notes: '' })
 
   const { data, isLoading } = useQuery({
     queryKey: ['member', networkId, id],
@@ -65,6 +66,7 @@ export function MemberDetailPage() {
       memberCode: member.memberCode || '',
       firstName: member.firstName || '',
       lastName: member.lastName || '',
+      notes: member.notes || '',
     })
     setEditing(true)
   }
@@ -142,30 +144,41 @@ export function MemberDetailPage() {
         </CardHeader>
         <CardContent>
           {editing ? (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs text-gray-500">First Name</label>
-                <Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500">First Name</label>
+                  <Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500">Last Name</label>
+                  <Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500">Email</label>
+                  <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500">Phone</label>
+                  <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="2348XXXXXXXXXX" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500">Unit</label>
+                  <Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500">Member Code</label>
+                  <Input value={form.memberCode} onChange={(e) => setForm({ ...form, memberCode: e.target.value })} />
+                </div>
               </div>
               <div className="space-y-1">
-                <label className="text-xs text-gray-500">Last Name</label>
-                <Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-gray-500">Email</label>
-                <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-gray-500">Phone</label>
-                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="2348XXXXXXXXXX" />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-gray-500">Unit</label>
-                <Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-gray-500">Member Code</label>
-                <Input value={form.memberCode} onChange={(e) => setForm({ ...form, memberCode: e.target.value })} />
+                <label className="text-xs text-gray-500">Notes (address, emergency contact, etc.)</label>
+                <Textarea
+                  rows={3}
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  placeholder="e.g. 12 Mango Street, Block C. Emergency contact: 08012345678"
+                />
               </div>
             </div>
           ) : (
@@ -194,6 +207,12 @@ export function MemberDetailPage() {
                 <dt className="text-gray-500">Joined</dt>
                 <dd className="font-medium">{formatDate(member.joinedAt)}</dd>
               </div>
+              {member.notes && (
+                <div className="col-span-2">
+                  <dt className="text-gray-500">Notes</dt>
+                  <dd className="font-medium whitespace-pre-wrap">{member.notes}</dd>
+                </div>
+              )}
             </dl>
           )}
         </CardContent>

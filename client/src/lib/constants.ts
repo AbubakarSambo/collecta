@@ -1,8 +1,14 @@
 export const NETWORK_TYPES = [
   { value: 'ESTATE', label: 'Residential Estate / Property Management' },
   { value: 'CHAMA', label: 'Chama / Savings Group / Investment Club' },
+  { value: 'COMMUNITY', label: 'Community Group / Residents Association' },
+  { value: 'COOPERATIVE', label: 'Cooperative Society' },
+  { value: 'GYM', label: 'Gym / Fitness Centre' },
+  { value: 'SPORTS', label: 'Sports Club / Team' },
+  { value: 'SCHOOL', label: 'School / Educational Institution' },
+  { value: 'CHURCH', label: 'Faith / Religious Organisation' },
   { value: 'SUPPLIER', label: 'Service Provider / Supplier (waste, security, cleaning)' },
-  { value: 'DEBT', label: 'Lending / Cooperative / Loan Collections' },
+  { value: 'DEBT', label: 'Lending / Loan Collections' },
 ]
 
 export const FEE_PAYMENT_TYPES = [

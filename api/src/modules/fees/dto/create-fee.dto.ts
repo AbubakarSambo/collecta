@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsBoolean,
   IsInt,
+  IsDateString,
   Min,
   Max,
   MaxLength,
@@ -52,6 +53,11 @@ export class CreateFeeDto {
   @Max(28)
   @Type(() => Number)
   dueDay?: number;
+
+  @ApiPropertyOptional({ example: '2024-01-01', description: 'Date the fee becomes active and charges start (ISO string). For ONE_TIME fees, this is the specific charge date.' })
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
 
   @ApiPropertyOptional({ default: false })
   @IsOptional()

@@ -8,6 +8,7 @@ import {
   Bell,
   BarChart3,
   Settings,
+  HelpCircle,
   X,
   Building2,
 } from 'lucide-react'
@@ -23,6 +24,7 @@ const navItems = [
   { to: '/reminders', icon: Bell, label: 'Reminders' },
   { to: '/reports', icon: BarChart3, label: 'Reports' },
   { to: '/settings', icon: Settings, label: 'Settings' },
+  { to: '/faq', icon: HelpCircle, label: 'FAQ' },
 ]
 
 interface SidebarProps {

@@ -34,4 +34,10 @@ export class CreateMemberDto {
   @IsString()
   @MaxLength(50)
   memberCode?: string;
+
+  @ApiPropertyOptional({ example: '12 Mango Street, Lagos. Emergency contact: 08012345678' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  notes?: string;
 }

@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { CheckCircle, XCircle, Mail } from 'lucide-react'
 import { authApi } from '@/api/auth'
+import { networksApi } from '@/api/networks'
 import { useAuthStore } from '@/stores/auth.store'
 import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
+
+const PENDING_VERIFICATION_KEY = 'collecta-pending-verification'
 
 export function VerifyEmailPage() {
   const [searchParams] = useSearchParams()
@@ -23,8 +26,20 @@ export function VerifyEmailPage() {
 
     setStatus('loading')
     authApi.verifyEmail(token)
-      .then((res) => {
+      .then(async (res) => {
         setAuth(res.data.user, res.data.accessToken)
+
+        const pendingVerification = localStorage.getItem(PENDING_VERIFICATION_KEY)
+        if (pendingVerification) {
+          try {
+            await networksApi.submitVerification(JSON.parse(pendingVerification))
+          } catch {
+            // verification submission failed silently — user can resubmit from Settings
+          } finally {
+            localStorage.removeItem(PENDING_VERIFICATION_KEY)
+          }
+        }
+
         setStatus('success')
         setTimeout(() => navigate('/dashboard'), 2000)
       })
@@ -42,6 +57,9 @@ export function VerifyEmailPage() {
           <h1 className="text-2xl font-bold text-gray-900">Check your email</h1>
           <p className="mt-2 text-gray-500">
             We sent a verification link to your email address. Click the link to verify your account.
+          </p>
+          <p className="mt-3 text-sm text-gray-400">
+            Once verified, connect your bank account in Settings to start accepting payments.
           </p>
           <Button className="mt-6" onClick={() => navigate('/login')}>
             Back to Login

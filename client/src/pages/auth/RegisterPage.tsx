@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { CheckCircle } from 'lucide-react'
+import { CheckCircle, Info } from 'lucide-react'
 import { authApi } from '@/api/auth'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -33,8 +33,19 @@ const step2Schema = z.object({
   networkType: z.string().min(1, 'Organisation type is required'),
 })
 
+const step3Schema = z.object({
+  organisationName: z.string().min(1, 'Organisation name is required').max(200),
+  cacNumber: z.string().max(50).optional(),
+  bvn: z.string().max(20).optional(),
+  nin: z.string().max(20).optional(),
+  contactAddress: z.string().min(1, 'Contact address is required').max(300),
+})
+
 type Step1Data = z.infer<typeof step1Schema>
 type Step2Data = z.infer<typeof step2Schema>
+type Step3Data = z.infer<typeof step3Schema>
+
+const PENDING_VERIFICATION_KEY = 'collecta-pending-verification'
 
 export function RegisterPage() {
   const navigate = useNavigate()
@@ -49,6 +60,7 @@ export function RegisterPage() {
     resolver: zodResolver(step2Schema),
     defaultValues: referredType ? { networkType: referredType } : undefined,
   })
+  const form3 = useForm<Step3Data>({ resolver: zodResolver(step3Schema) })
 
   const handleStep1 = (data: Step1Data) => {
     setStep1Data(data)
@@ -58,23 +70,37 @@ export function RegisterPage() {
   const handleNetworkNameChange = (name: string) => {
     const slug = generateSlug(name)
     form2.setValue('networkSlug', slug)
+    if (!form3.getValues('organisationName')) {
+      form3.setValue('organisationName', name)
+    }
   }
 
-  const handleSubmit = async (data: Step2Data) => {
+  const handleStep2 = async (data: Step2Data) => {
     if (!step1Data) return
-
     try {
       await authApi.register({
         ...step1Data,
         ...data,
         ...(referralSource ? { referralSource } : {}),
       })
-      toast.success('Account created! Check your email to verify your account.')
-      navigate('/verify-email')
+      setStep(3)
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Registration failed')
     }
   }
+
+  const handleStep3 = (data: Step3Data) => {
+    localStorage.setItem(PENDING_VERIFICATION_KEY, JSON.stringify(data))
+    toast.success('Account created! Check your email to verify your account.')
+    navigate('/verify-email')
+  }
+
+  const handleSkipVerification = () => {
+    toast.success('Account created! Check your email to verify your account.')
+    navigate('/verify-email')
+  }
+
+  const STEP_LABELS = ['Your Account', 'Your Network', 'Verification']
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface px-4 py-12">
@@ -87,30 +113,37 @@ export function RegisterPage() {
         </div>
 
         {/* Step indicators */}
-        <div className="mb-6 flex items-center justify-center gap-4">
-          {[1, 2].map((s) => (
-            <div key={s} className="flex items-center gap-2">
-              <div
-                className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium
-                  ${s < step ? 'bg-primary text-primary-foreground' : s === step ? 'border-2 border-primary text-brand-700' : 'border-2 border-gray-200 text-gray-400'}`}
-              >
-                {s < step ? <CheckCircle className="h-4 w-4" /> : s}
+        <div className="mb-6 flex items-center justify-center gap-2">
+          {STEP_LABELS.map((label, idx) => {
+            const s = idx + 1
+            return (
+              <div key={s} className="flex items-center gap-2">
+                <div
+                  className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium
+                    ${s < step ? 'bg-primary text-primary-foreground' : s === step ? 'border-2 border-primary text-brand-700' : 'border-2 border-gray-200 text-gray-400'}`}
+                >
+                  {s < step ? <CheckCircle className="h-4 w-4" /> : s}
+                </div>
+                <span className={`text-sm ${s === step ? 'font-medium text-gray-900' : 'text-gray-400'}`}>
+                  {label}
+                </span>
+                {s < 3 && <div className="ml-2 h-px w-6 bg-gray-200" />}
               </div>
-              <span className={`text-sm ${s === step ? 'font-medium text-gray-900' : 'text-gray-400'}`}>
-                {s === 1 ? 'Your Account' : 'Your Network'}
-              </span>
-              {s < 2 && <div className="ml-2 h-px w-8 bg-gray-200" />}
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>{step === 1 ? 'Account Details' : 'Network Details'}</CardTitle>
+            <CardTitle>
+              {step === 1 ? 'Account Details' : step === 2 ? 'Network Details' : 'Verify Your Organisation'}
+            </CardTitle>
             <CardDescription>
               {step === 1
                 ? 'Create your Collecta account'
-                : 'Set up your community network'}
+                : step === 2
+                ? 'Set up your community network'
+                : 'Required before your portal can go live'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -166,7 +199,7 @@ export function RegisterPage() {
             )}
 
             {step === 2 && (
-              <form onSubmit={form2.handleSubmit(handleSubmit)} className="space-y-4">
+              <form onSubmit={form2.handleSubmit(handleStep2)} className="space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="networkName">Network Name</Label>
                   <Input
@@ -232,7 +265,77 @@ export function RegisterPage() {
                     className="flex-1"
                     isLoading={form2.formState.isSubmitting}
                   >
-                    Create Network
+                    Continue
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            {step === 3 && (
+              <form onSubmit={form3.handleSubmit(handleStep3)} className="space-y-4">
+                {/* Info banner */}
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <Info className="h-4 w-4 text-blue-600 shrink-0" />
+                    <p className="text-sm font-semibold text-blue-900">Verification is required to go live</p>
+                  </div>
+                  <p className="text-xs text-blue-800 leading-relaxed">
+                    Collecta cannot hold funds on your behalf — payments go directly to your bank account.
+                    To activate your payment portal, you'll need to submit verification details and connect a bank account.
+                    Reviewed within 24 hours.
+                  </p>
+                  <p className="text-xs text-blue-700 font-medium">
+                    Have ready: your BVN or CAC number, and your bank account number.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="organisationName">Organisation name</Label>
+                  <Input
+                    id="organisationName"
+                    placeholder="Greenpark Estate Residents Association"
+                    error={form3.formState.errors.organisationName?.message}
+                    {...form3.register('organisationName')}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="cacNumber">CAC number (optional)</Label>
+                    <Input id="cacNumber" placeholder="RC1234567" {...form3.register('cacNumber')} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="bvn">BVN (individual collectors)</Label>
+                    <Input id="bvn" placeholder="12345678901" {...form3.register('bvn')} />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="nin">NIN (optional)</Label>
+                  <Input id="nin" placeholder="12345678901" {...form3.register('nin')} />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="contactAddress">Contact address</Label>
+                  <Input
+                    id="contactAddress"
+                    placeholder="12 Main Street, Lagos"
+                    error={form3.formState.errors.contactAddress?.message}
+                    {...form3.register('contactAddress')}
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={handleSkipVerification}
+                  >
+                    Skip for now
+                  </Button>
+                  <Button type="submit" className="flex-1">
+                    Submit &amp; Continue
                   </Button>
                 </div>
               </form>

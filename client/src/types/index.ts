@@ -1,5 +1,5 @@
 // Enums
-export type NetworkType = 'ESTATE' | 'CHAMA' | 'SUPPLIER' | 'DEBT'
+export type NetworkType = 'ESTATE' | 'CHAMA' | 'SUPPLIER' | 'DEBT' | 'GYM' | 'COMMUNITY' | 'SCHOOL' | 'CHURCH' | 'SPORTS' | 'COOPERATIVE'
 export type FeePaymentType = 'SCHEDULED' | 'OPEN' | 'WINDOWED'
 export type VerificationStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 export type ReminderTone = 'FRIENDLY' | 'CLEAR' | 'FIRM' | 'FORMAL'
@@ -63,6 +63,7 @@ export interface Member {
   phone?: string
   memberCode?: string
   unit?: string
+  notes?: string
   status: MemberStatus
   smsOptedOut?: boolean
   consecutiveMonthsPaid?: number
@@ -88,6 +89,7 @@ export interface Fee {
   amount: number
   frequency: FeeFrequency
   dueDay: number
+  startDate?: string
   penaltyEnabled: boolean
   penaltyPercent: number
   penaltyGraceDays: number

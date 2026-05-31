@@ -34,6 +34,7 @@ export function DashboardPage() {
   )
   const [copied, setCopied] = useState<string | null>(null)
   const [templatesOpen, setTemplatesOpen] = useState(false)
+  const [chartMonths, setChartMonths] = useState(6)
 
   const dismissOnboarding = () => {
     localStorage.setItem(ONBOARDING_DISMISSED_KEY, '1')
@@ -74,8 +75,8 @@ export function DashboardPage() {
   })
 
   const { data: reportRes } = useQuery({
-    queryKey: ['reports', 'collection', networkId],
-    queryFn: () => reportsApi.collection(networkId!, 6),
+    queryKey: ['reports', 'collection', networkId, chartMonths],
+    queryFn: () => reportsApi.collection(networkId!, chartMonths),
     enabled: !!networkId,
     select: (r) => r.data,
   })
@@ -380,7 +381,28 @@ export function DashboardPage() {
         {/* Collection Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>6-Month Collection Trend</CardTitle>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle>Collection Trend</CardTitle>
+              <div className="flex gap-1 rounded-lg border bg-gray-50 p-0.5 text-xs">
+                {[
+                  { label: '6M', months: 6 },
+                  { label: '1Y', months: 12 },
+                  { label: '2Y', months: 24 },
+                ].map(({ label, months }) => (
+                  <button
+                    key={months}
+                    onClick={() => setChartMonths(months)}
+                    className={`rounded px-2.5 py-1 font-medium transition-colors ${
+                      chartMonths === months
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={200}>
