@@ -428,17 +428,49 @@ export class NetworksService {
   }
 
   async getPendingVerifications() {
-    return this.prisma.verificationRequest.findMany({
+    const adminSelect = { select: { email: true, firstName: true, lastName: true } };
+
+    const requests = await this.prisma.verificationRequest.findMany({
       where: { status: 'PENDING' },
       include: {
-        network: {
-          include: {
-            admin: { select: { email: true, firstName: true, lastName: true } },
-          },
-        },
+        network: { include: { admin: adminSelect } },
       },
       orderBy: { createdAt: 'asc' },
     });
+
+    // Networks that are PENDING but have NOT submitted a verification request
+    // (e.g. self-registered at signup). They'd otherwise never appear in the queue.
+    const networksWithRequest = requests.map((r) => r.networkId);
+    const unsubmitted = await this.prisma.network.findMany({
+      where: {
+        verificationStatus: 'PENDING',
+        id: { notIn: networksWithRequest },
+      },
+      include: { admin: adminSelect },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const synthetic = unsubmitted.map((n) => ({
+      id: `network-${n.id}`,
+      organisationName: n.name,
+      cacNumber: null,
+      bvn: null,
+      nin: null,
+      contactAddress: null,
+      status: 'PENDING' as const,
+      createdAt: n.createdAt,
+      hasSubmittedDetails: false,
+      network: {
+        id: n.id,
+        slug: n.slug,
+        networkType: n.networkType,
+        admin: n.admin,
+      },
+    }));
+
+    const submitted = requests.map((r) => ({ ...r, hasSubmittedDetails: true }));
+
+    return [...submitted, ...synthetic];
   }
 
   async findBySlug(slug: string) {

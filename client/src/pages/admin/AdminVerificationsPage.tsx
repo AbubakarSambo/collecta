@@ -83,6 +83,11 @@ function VerificationCard({
             <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
               Pending
             </span>
+            {v.hasSubmittedDetails === false && (
+              <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500">
+                No documents submitted
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1.5 text-xs text-gray-400">
