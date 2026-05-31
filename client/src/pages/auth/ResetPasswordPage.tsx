@@ -44,7 +44,7 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-surface px-4">
       <div className="w-full max-w-md">
         <Card>
           <CardHeader>
@@ -79,7 +79,7 @@ export function ResetPasswordPage() {
             </form>
 
             <p className="mt-4 text-center text-sm text-gray-500">
-              <Link to="/login" className="text-green-600 hover:underline">
+              <Link to="/login" className="text-brand-700 hover:underline">
                 Back to Login
               </Link>
             </p>

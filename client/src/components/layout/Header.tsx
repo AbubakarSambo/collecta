@@ -33,7 +33,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             href={`/n/${user.networkSlug}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-green-600"
+            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-brand-700"
           >
             <ExternalLink className="h-3.5 w-3.5" />
             Member Portal

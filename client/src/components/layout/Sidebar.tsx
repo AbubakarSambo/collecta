@@ -54,10 +54,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* Logo */}
         <div className="flex h-16 items-center justify-between px-6 border-b">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600 text-white text-sm font-bold">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-black text-brand-500 text-sm font-bold font-display">
               C
             </div>
-            <span className="text-lg font-bold text-gray-900">Collecta</span>
+            <span className="text-lg font-bold text-gray-900 font-display">Collecta</span>
           </div>
           <button
             onClick={onClose}
@@ -69,11 +69,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* Network info */}
         {user?.networkName && (
-          <div className="mx-4 mt-4 flex items-center gap-2 rounded-lg bg-green-50 p-3">
-            <Building2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+          <div className="mx-4 mt-4 flex items-center gap-2 rounded-lg bg-brand-50 border border-brand-100 p-3">
+            <Building2 className="h-4 w-4 text-brand-700 flex-shrink-0" />
             <div className="min-w-0">
-              <p className="text-xs font-medium text-green-800 truncate">{user.networkName}</p>
-              <p className="text-xs text-green-600">{user.networkSlug}</p>
+              <p className="text-xs font-semibold text-gray-900 truncate">{user.networkName}</p>
+              <p className="text-xs text-stone">{user.networkSlug}</p>
             </div>
           </div>
         )}
@@ -89,8 +89,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 cn(
                   'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                   isActive
-                    ? 'bg-green-50 text-green-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                    ? 'bg-brand-50 text-black font-semibold'
+                    : 'text-stone hover:bg-surface hover:text-black',
                 )
               }
             >
@@ -103,7 +103,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* User */}
         <div className="border-t p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-green-700 text-xs font-medium">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-xs font-semibold">
               {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
             </div>
             <div className="min-w-0 flex-1">

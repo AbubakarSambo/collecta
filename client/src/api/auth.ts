@@ -10,6 +10,7 @@ export const authApi = {
     networkSlug: string
     networkDescription?: string
     networkType?: string
+    referralSource?: string
   }) => apiClient.post('/auth/register', data).then((r) => r.data),
 
   login: (data: { email: string; password: string }) =>

@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { StatusBadge } from '@/components/ui/Badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import { ValueOfDigitalCard } from '@/components/portal/ValueOfDigitalCard'
+import { CollectorNudge } from '@/components/portal/CollectorNudge'
 
 function TierBadge({ tier, label }: { tier: 'TOP' | 'SECOND' | null; label: string | null }) {
   if (!tier || !label) return null
@@ -123,6 +125,30 @@ export function PaymentHistoryPage() {
         )}
       </div>
 
+      {/* Lifetime stats */}
+      {history.stats && (
+        <div className="grid grid-cols-3 gap-3">
+          <Card>
+            <CardContent className="p-3 text-center">
+              <p className="text-lg font-bold text-gray-900">{formatCurrency(history.stats.lifetimeTotal)}</p>
+              <p className="text-xs text-gray-500">Paid here</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 text-center">
+              <p className="text-lg font-bold text-yellow-600">{history.stats.consecutiveMonthsPaid}</p>
+              <p className="text-xs text-gray-500">Month streak</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 text-center">
+              <p className="text-lg font-bold text-gray-900">{history.stats.organisationsCount}</p>
+              <p className="text-xs text-gray-500">Organisations</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Outstanding charges */}
       {history.outstandingCharges.length > 0 && (
         <Card className="border-orange-200">
@@ -184,6 +210,21 @@ export function PaymentHistoryPage() {
           )}
         </CardContent>
       </Card>
+
+      <ValueOfDigitalCard
+        recordNote={
+          history.confirmedPayments.length > 0
+            ? `${history.confirmedPayments.length} payment${history.confirmedPayments.length === 1 ? '' : 's'} on record`
+            : undefined
+        }
+        organisationsNote={
+          history.stats?.organisationsCount
+            ? `${history.stats.organisationsCount} organisation${history.stats.organisationsCount === 1 ? '' : 's'} via Collecta`
+            : undefined
+        }
+      />
+
+      {slug && <CollectorNudge slug={slug} />}
     </div>
   )
 }

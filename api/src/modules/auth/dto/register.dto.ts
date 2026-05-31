@@ -46,4 +46,10 @@ export class RegisterDto {
   @IsOptional()
   @IsEnum(NetworkType)
   networkType?: NetworkType;
+
+  @ApiPropertyOptional({ example: 'suncity-estate', description: 'Slug of the network that referred this signup' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  referralSource?: string;
 }

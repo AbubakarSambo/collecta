@@ -10,6 +10,9 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import { FullPageSpinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
+import { StreakCalendar } from '@/components/portal/StreakCalendar'
+import { PeerBenchmark } from '@/components/portal/PeerBenchmark'
+import { CollectorNudge } from '@/components/portal/CollectorNudge'
 
 function TierBadge({ tier, label }: { tier: 'TOP' | 'SECOND' | null; label: string | null }) {
   if (!tier || !label) return null
@@ -60,7 +63,7 @@ export function MemberProfilePage() {
     )
   }
 
-  const { member, charges, summary, motivationalMessage, tierTag } = data
+  const { member, charges, summary, motivationalMessage, tierTag, streakCalendar, benchmark } = data
 
   const isGoodStanding = summary.chargesOverdue === 0
 
@@ -126,6 +129,12 @@ export function MemberProfilePage() {
         </Card>
       </div>
 
+      {streakCalendar && streakCalendar.length > 0 && (
+        <StreakCalendar dots={streakCalendar} months={member.consecutiveMonthsPaid} />
+      )}
+
+      <PeerBenchmark benchmark={benchmark} />
+
       {/* Charges */}
       <Card>
         <CardHeader>
@@ -159,6 +168,8 @@ export function MemberProfilePage() {
           )}
         </CardContent>
       </Card>
+
+      {slug && <CollectorNudge slug={slug} />}
 
       {isOwnProfile && (
         <div className="text-center pt-2">

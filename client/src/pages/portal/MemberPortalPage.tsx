@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { formatCurrency } from '@/lib/utils'
 import { FullPageSpinner } from '@/components/ui/Spinner'
 import { Search, AlertCircle, User, ShieldCheck, Clock } from 'lucide-react'
+import { SocialProofStrip } from '@/components/portal/SocialProofStrip'
+import { OfflinePayOption } from '@/components/portal/OfflinePayOption'
 
 interface PayerForm {
   firstName: string
@@ -77,7 +79,7 @@ function OpenFeeCard({ fee, slug }: { fee: any; slug: string }) {
               <p className="text-xs text-gray-500 mt-1">{fee.description}</p>
             )}
           </div>
-          <p className="text-xl font-bold text-green-700">{formatCurrency(Number(fee.amount))}</p>
+          <p className="text-xl font-bold text-gray-900">{formatCurrency(Number(fee.amount))}</p>
         </div>
 
         {fee.options && fee.options.length > 0 && (
@@ -222,7 +224,7 @@ export function MemberPortalPage() {
     )
   }
 
-  const { network, openFees } = data
+  const { network, openFees, networkStats } = data
 
   return (
     <div className="space-y-8">
@@ -241,6 +243,8 @@ export function MemberPortalPage() {
           <p className="mt-2 text-gray-500">{network.description}</p>
         )}
       </div>
+
+      <SocialProofStrip stats={networkStats} />
 
       {/* Open Fees */}
       {openFees.length > 0 && (
@@ -323,6 +327,9 @@ export function MemberPortalPage() {
           </CardContent>
         </Card>
       )}
+
+      <OfflinePayOption phone={network.contactPhone} />
+
       {/* Footer */}
       <div className="pt-4 border-t flex justify-center gap-4 text-xs text-gray-400">
         <Link to="/terms" className="hover:underline">Terms</Link>

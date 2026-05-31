@@ -22,7 +22,7 @@ export function PortalLayout() {
             {network?.logoUrl ? (
               <img src={network.logoUrl} alt={network.name} className="h-10 w-10 rounded-full object-cover" />
             ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 text-green-700 font-bold text-lg">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black text-brand-500 font-bold text-lg font-display">
                 {network?.name?.charAt(0) || 'C'}
               </div>
             )}
@@ -42,7 +42,7 @@ export function PortalLayout() {
 
       <footer className="mt-12 py-6 text-center text-xs text-gray-400">
         Powered by{' '}
-        <a href="https://collecta.services" className="text-green-600 hover:underline">
+        <a href="https://collecta.services" className="text-brand-700 hover:underline">
           Collecta
         </a>
       </footer>

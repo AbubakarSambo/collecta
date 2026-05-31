@@ -58,6 +58,7 @@ model Network {
   country                String             @default("NG")
   timezone               String             @default("Africa/Lagos")
   isActive               Boolean            @default(true)
+  referralSource         String?
   lastRunAt              DateTime?
   lastProcessedId        String?
   createdAt              DateTime           @default(now())

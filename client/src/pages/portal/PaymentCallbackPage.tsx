@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { CheckCircle, XCircle, Trophy, Star, Mail, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { CheckCircle, XCircle, Trophy, Star, Mail, AlertCircle, CheckCircle2, CalendarPlus } from 'lucide-react'
 import { Spinner } from '@/components/ui/Spinner'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import apiClient from '@/api/client'
+import { StreakCalendar } from '@/components/portal/StreakCalendar'
+import { PeerBenchmark } from '@/components/portal/PeerBenchmark'
+import { CollectorNudge } from '@/components/portal/CollectorNudge'
+import type { StreakDot, Benchmark } from '@/components/portal/types'
 
 interface TierTag {
   tier: 'TOP' | 'SECOND' | null
@@ -27,8 +31,37 @@ interface PaymentResult {
   networkName?: string
   networkSlug?: string
   memberName?: string
+  memberId?: string
   paidAt?: string
   outstandingCharges?: OutstandingCharge[]
+  streakCalendar?: StreakDot[]
+  benchmark?: Benchmark | null
+}
+
+/** Builds and downloads a calendar (.ics) reminder for an upcoming charge. */
+function addToCalendar(charge: OutstandingCharge, networkName?: string) {
+  const due = new Date(charge.dueDate)
+  const stamp = (d: Date) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
+  const end = new Date(due.getTime() + 30 * 60 * 1000)
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Collecta//Payment Reminder//EN',
+    'BEGIN:VEVENT',
+    `DTSTART:${stamp(due)}`,
+    `DTEND:${stamp(end)}`,
+    `SUMMARY:Pay ${charge.feeName}${networkName ? ` — ${networkName}` : ''}`,
+    `DESCRIPTION:Reminder to pay ${charge.feeName} via Collecta.`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n')
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'collecta-reminder.ics'
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 function TierBadge({ tierTag }: { tierTag: TierTag | null }) {
@@ -162,6 +195,27 @@ export function PaymentCallbackPage() {
             )}
 
             <TierBadge tierTag={result?.tierTag ?? null} />
+
+            {/* Engagement layer */}
+            <div className="mt-6 space-y-4 text-left">
+              {result?.streakCalendar && result.streakCalendar.length > 0 && (
+                <StreakCalendar dots={result.streakCalendar} />
+              )}
+
+              <PeerBenchmark benchmark={result?.benchmark} />
+
+              {result?.outstandingCharges && result.outstandingCharges.length > 0 && (
+                <button
+                  onClick={() => addToCalendar(result.outstandingCharges![0], result.networkName)}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900"
+                >
+                  <CalendarPlus className="h-4 w-4" />
+                  Add a reminder for your next payment
+                </button>
+              )}
+
+              {result?.networkSlug && <CollectorNudge slug={result.networkSlug} />}
+            </div>
           </>
         )}
 

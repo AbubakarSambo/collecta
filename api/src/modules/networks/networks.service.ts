@@ -115,7 +115,7 @@ export class NetworksService {
     });
 
     // If already verified, now both conditions are met — send the onboarding email
-    if (network.isVerified && network.admin?.email) {
+    if (network.isVerified) {
       const portalUrl = `${process.env.FRONTEND_URL || 'https://collecta.services'}/pay/${network.slug}`;
       const admin = await this.prisma.user.findUnique({
         where: { id: network.adminId },

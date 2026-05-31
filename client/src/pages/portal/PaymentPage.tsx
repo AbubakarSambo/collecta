@@ -7,8 +7,10 @@ import { portalApi } from '@/api/portal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import { FullPageSpinner } from '@/components/ui/Spinner'
+import { StreakBanner } from '@/components/portal/StreakBanner'
+import { OfflinePayOption } from '@/components/portal/OfflinePayOption'
 
 const LARGE_PAYMENT_THRESHOLD = 50000
 
@@ -90,6 +92,11 @@ export function PaymentPage() {
   const totalToPay = payAmount + serviceCharge
   const isPartial = payAmount < data.remainingAmount && payAmount > 0
   const isLargePayment = payAmount >= LARGE_PAYMENT_THRESHOLD
+
+  const dueDate = data.dueDate ? new Date(data.dueDate) : null
+  const daysUntilDue = dueDate ? Math.ceil((dueDate.getTime() - Date.now()) / 86_400_000) : null
+  const isOverdue = data.status === 'OVERDUE'
+  const isDueSoon = isOverdue || (daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 7)
 
   // Pre-payment confirmation screen for large amounts
   if (confirmed && isLargePayment) {
@@ -190,9 +197,26 @@ export function PaymentPage() {
         <ArrowLeft className="h-4 w-4" /> Back
       </button>
 
+      {data.consecutiveMonthsPaid > 0 && (
+        <StreakBanner
+          months={data.consecutiveMonthsPaid}
+          subtitle="Pay today — don't break your streak."
+        />
+      )}
+
       <Card>
         <CardHeader>
-          <CardTitle>{data.feeName}</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            {data.feeName}
+            {isDueSoon && (
+              <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                {isOverdue ? 'Overdue' : 'Due soon'}
+              </span>
+            )}
+          </CardTitle>
+          {dueDate && (
+            <p className="text-xs text-gray-500">Due {formatDate(dueDate)}</p>
+          )}
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Charge summary */}
@@ -318,6 +342,8 @@ export function PaymentPage() {
           <p className="text-center text-xs text-gray-400">
             Secured by Paystack. A receipt will be sent to your email after payment.
           </p>
+
+          <OfflinePayOption phone={data.network?.contactPhone} />
         </CardContent>
       </Card>
     </div>

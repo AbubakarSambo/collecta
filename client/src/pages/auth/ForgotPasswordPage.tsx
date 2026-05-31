@@ -35,7 +35,7 @@ export function ForgotPasswordPage() {
 
   if (sent) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      <div className="flex min-h-screen items-center justify-center bg-surface px-4">
         <div className="max-w-md text-center">
           <CheckCircle className="mx-auto mb-4 h-14 w-14 text-green-600" />
           <h1 className="text-2xl font-bold text-gray-900">Check your email</h1>
@@ -51,7 +51,7 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-surface px-4">
       <div className="w-full max-w-md">
         <Card>
           <CardHeader>
@@ -77,7 +77,7 @@ export function ForgotPasswordPage() {
             </form>
 
             <p className="mt-4 text-center text-sm text-gray-500">
-              <Link to="/login" className="text-green-600 hover:underline">
+              <Link to="/login" className="text-brand-700 hover:underline">
                 Back to Login
               </Link>
             </p>
