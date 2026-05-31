@@ -4,6 +4,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PaystackService } from '../paystack/paystack.service';
 import { EmailService } from '../email/email.service';
 import { calculateServiceCharge } from '../../common/utils/service-charge.util';
+import {
+  buildStreakCalendar,
+  computeBenchmark,
+  daysEarly,
+  Benchmark,
+  StreakDot,
+} from './portal-stats.util';
 
 @Injectable()
 export class PortalService {
@@ -25,6 +32,60 @@ export class PortalService {
     return { tier: null, label: null };
   }
 
+  /** Counts of active members and how many are fully current (social proof). */
+  private async getNetworkStats(networkId: string): Promise<{ totalMembers: number; membersCurrentWithPayments: number }> {
+    const [totalMembers, membersCurrentWithPayments] = await Promise.all([
+      this.prisma.member.count({ where: { networkId, status: 'ACTIVE' } }),
+      this.prisma.member.count({
+        where: {
+          networkId,
+          status: 'ACTIVE',
+          charges: { none: { status: { in: ['OVERDUE', 'PENDING', 'PARTIALLY_PAID'] } } },
+        },
+      }),
+    ]);
+    return { totalMembers, membersCurrentWithPayments };
+  }
+
+  /** Per-month paid/missed/upcoming dots for a member's last 18 months. */
+  private async getMemberStreakCalendar(networkId: string, memberId: string): Promise<StreakDot[]> {
+    const charges = await this.prisma.charge.findMany({
+      where: { networkId, memberId },
+      select: { billingMonth: true, dueDate: true, status: true, paidAt: true },
+    });
+    return buildStreakCalendar(charges);
+  }
+
+  /** Peer benchmark: how early this member pays vs the network (last 12 months). */
+  private async getMemberBenchmark(networkId: string, memberId: string): Promise<Benchmark> {
+    const since = new Date();
+    since.setMonth(since.getMonth() - 12);
+    const payments = await this.prisma.payment.findMany({
+      where: { networkId, createdAt: { gte: since } },
+      select: { memberId: true, createdAt: true, charge: { select: { dueDate: true } } },
+    });
+    const networkDaysEarly: number[] = [];
+    const memberDaysEarly: number[] = [];
+    for (const p of payments) {
+      if (!p.charge?.dueDate) continue;
+      const de = daysEarly(p.charge.dueDate, p.createdAt);
+      networkDaysEarly.push(de);
+      if (p.memberId === memberId) memberDaysEarly.push(de);
+    }
+    return computeBenchmark(memberDaysEarly, networkDaysEarly);
+  }
+
+  async getNetworkBenchmark(slug: string, memberId: string) {
+    const network = await this.prisma.network.findUnique({
+      where: { slug: slug.toLowerCase() },
+      select: { id: true },
+    });
+    if (!network) {
+      throw new NotFoundException('Network not found');
+    }
+    return this.getMemberBenchmark(network.id, memberId);
+  }
+
   async getNetworkPortal(slug: string) {
     const network = await this.prisma.network.findUnique({
       where: { slug: slug.toLowerCase() },
@@ -39,6 +100,7 @@ export class PortalService {
         isVerified: true,
         verificationStatus: true,
         paystackSubaccountCode: true,
+        contactPhone: true,
       },
     });
 
@@ -74,6 +136,8 @@ export class PortalService {
       },
     });
 
+    const networkStats = await this.getNetworkStats(network.id);
+
     return {
       comingSoon: false,
       network: {
@@ -84,8 +148,10 @@ export class PortalService {
         logoUrl: network.logoUrl,
         currency: network.currency,
         isVerified: network.isVerified,
+        contactPhone: network.contactPhone,
       },
       openFees,
+      networkStats,
     };
   }
 
@@ -146,6 +212,8 @@ export class PortalService {
           : `You have ${chargesOverdue} overdue charges. Please settle them to avoid penalties.`;
 
     const tierTag = this.getTierTag(member.consecutiveMonthsPaid);
+    const streakCalendar = buildStreakCalendar(member.charges);
+    const benchmark = await this.getMemberBenchmark(network.id, member.id);
 
     return {
       member: {
@@ -169,6 +237,8 @@ export class PortalService {
         totalMembers,
         membersCurrentWithPayments,
       },
+      streakCalendar,
+      benchmark,
       motivationalMessage,
       tierTag,
     };
@@ -177,7 +247,7 @@ export class PortalService {
   async getCharge(slug: string, chargeId: string) {
     const network = await this.prisma.network.findUnique({
       where: { slug: slug.toLowerCase() },
-      select: { id: true, name: true, isVerified: true, country: true, bankAccountName: true, settlementBank: true },
+      select: { id: true, name: true, isVerified: true, country: true, bankAccountName: true, settlementBank: true, contactPhone: true },
     });
 
     if (!network) {
@@ -188,13 +258,15 @@ export class PortalService {
       where: { id: chargeId, networkId: network.id },
       include: {
         fee: { select: { name: true } },
-        member: { select: { firstName: true, lastName: true } },
+        member: { select: { id: true, firstName: true, lastName: true, consecutiveMonthsPaid: true } },
       },
     });
 
     if (!charge) {
       throw new NotFoundException('Charge not found');
     }
+
+    const consecutiveMonthsPaid = charge.member?.consecutiveMonthsPaid ?? 0;
 
     return {
       id: charge.id,
@@ -204,9 +276,12 @@ export class PortalService {
       remainingAmount: Number(charge.amount) - Number(charge.paidAmount),
       status: charge.status,
       dueDate: charge.dueDate,
+      memberId: charge.member?.id ?? null,
       memberName: charge.member
         ? `${charge.member.firstName} ${charge.member.lastName}`
         : null,
+      consecutiveMonthsPaid,
+      tierTag: this.getTierTag(consecutiveMonthsPaid),
       network: {
         name: network.name,
         isVerified: network.isVerified,
@@ -214,6 +289,7 @@ export class PortalService {
         kenyaEnabled: this.configService.get<boolean>('app.kenyaEnabled') || false,
         bankAccountName: network.bankAccountName,
         settlementBank: network.settlementBank,
+        contactPhone: network.contactPhone,
       },
     };
   }
@@ -422,6 +498,11 @@ export class PortalService {
         },
       });
 
+      const [streakCalendar, benchmark] = await Promise.all([
+        this.getMemberStreakCalendar(existing.networkId, existing.memberId),
+        this.getMemberBenchmark(existing.networkId, existing.memberId),
+      ]);
+
       return {
         status: existing.charge.status,
         alreadyRecorded: true,
@@ -430,9 +511,12 @@ export class PortalService {
         amount: Number(existing.amount),
         networkName: existing.charge.network?.name,
         networkSlug: existing.charge.network?.slug,
+        memberId: existing.memberId,
         memberName: existing.member
           ? `${existing.member.firstName} ${existing.member.lastName}`
           : undefined,
+        streakCalendar,
+        benchmark,
         outstandingCharges: existingOutstanding.map((c) => ({
           id: c.id,
           feeName: c.fee?.name || c.description || 'Charge',
@@ -518,6 +602,11 @@ export class PortalService {
     const feeName = charge.fee?.name || charge.description || 'Payment';
     const memberName = `${charge.member.firstName} ${charge.member.lastName}`;
 
+    const [streakCalendar, benchmark] = await Promise.all([
+      this.getMemberStreakCalendar(charge.networkId, charge.memberId),
+      this.getMemberBenchmark(charge.networkId, charge.memberId),
+    ]);
+
     // Fetch remaining outstanding charges for directional step on confirmation screen
     const outstandingCharges = await this.prisma.charge.findMany({
       where: {
@@ -546,7 +635,10 @@ export class PortalService {
       amount,
       networkName: charge.network.name,
       networkSlug: charge.network.slug,
+      memberId: charge.memberId,
       memberName,
+      streakCalendar,
+      benchmark,
       outstandingCharges: outstandingCharges.map((c) => ({
         id: c.id,
         feeName: c.fee?.name || c.description || 'Charge',
@@ -605,9 +697,29 @@ export class PortalService {
       }),
     ]);
 
+    // Aggregate cross-organisation figures (counts/totals only — see privacy note).
+    // We never expose *which* other organisations a person belongs to.
+    const sameEmailMembers = await this.prisma.member.findMany({
+      where: { email: email.toLowerCase() },
+      select: { id: true, networkId: true },
+    });
+    const organisationsCount = new Set(sameEmailMembers.map((m) => m.networkId)).size;
+    const crossOrgAgg = await this.prisma.payment.aggregate({
+      where: { memberId: { in: sameEmailMembers.map((m) => m.id) } },
+      _sum: { amount: true },
+    });
+    const crossOrgLifetimeTotal = Number(crossOrgAgg._sum.amount ?? 0);
+    const lifetimeTotal = confirmedPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+
     return {
       member: { firstName: member.firstName, lastName: member.lastName },
       networkName: network.name,
+      stats: {
+        lifetimeTotal,
+        consecutiveMonthsPaid: member.consecutiveMonthsPaid,
+        organisationsCount,
+        crossOrgLifetimeTotal,
+      },
       confirmedPayments: confirmedPayments.map((p) => ({
         id: p.id,
         amount: Number(p.amount),

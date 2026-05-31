@@ -95,6 +95,15 @@ export class PortalController {
     return this.portalService.findMemberByToken(slug, token);
   }
 
+  @Get(':slug/member/:memberId/benchmark')
+  @ApiOperation({ summary: 'Get peer payment benchmark for a member (public)' })
+  async getNetworkBenchmark(
+    @Param('slug') slug: string,
+    @Param('memberId') memberId: string,
+  ) {
+    return this.portalService.getNetworkBenchmark(slug, memberId);
+  }
+
   @Post(':slug/member/:memberId/sms-opt-out')
   @ApiOperation({ summary: 'Opt a member out of SMS reminders (public, no auth required)' })
   async smsOptOut(

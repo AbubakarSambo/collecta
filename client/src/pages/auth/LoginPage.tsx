@@ -38,10 +38,10 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-surface px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-green-600 text-white text-2xl font-bold">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-black text-brand-500 text-2xl font-bold font-display">
             C
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Collecta</h1>
@@ -68,7 +68,7 @@ export function LoginPage() {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
-                  <Link to="/forgot-password" className="text-xs text-green-600 hover:underline">
+                  <Link to="/forgot-password" className="text-xs text-brand-700 hover:underline">
                     Forgot password?
                   </Link>
                 </div>
@@ -88,7 +88,7 @@ export function LoginPage() {
 
             <p className="mt-4 text-center text-sm text-gray-500">
               Don&apos;t have an account?{' '}
-              <Link to="/register" className="text-green-600 hover:underline font-medium">
+              <Link to="/register" className="text-brand-700 hover:underline font-medium">
                 Create one free
               </Link>
             </p>

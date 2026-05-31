@@ -64,6 +64,7 @@ export class AuthService {
           description: dto.networkDescription,
           adminId: user.id,
           networkType: dto.networkType ?? 'ESTATE',
+          referralSource: dto.referralSource ?? null,
         },
       });
 

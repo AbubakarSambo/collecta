@@ -83,7 +83,7 @@ export function MemberLoginPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
-                <Mail className="h-5 w-5 text-green-600" />
+                <Mail className="h-5 w-5 text-brand-600" />
                 <CardTitle>Sign in</CardTitle>
               </div>
               <p className="text-sm text-gray-500">
@@ -115,7 +115,7 @@ export function MemberLoginPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
-                <KeyRound className="h-5 w-5 text-green-600" />
+                <KeyRound className="h-5 w-5 text-brand-600" />
                 <CardTitle>Enter your code</CardTitle>
               </div>
               <p className="text-sm text-gray-500">

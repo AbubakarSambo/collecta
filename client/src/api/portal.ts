@@ -7,6 +7,9 @@ export const portalApi = {
   getMemberProfile: (slug: string, memberId: string) =>
     apiClient.get(`/portal/${slug}/member/${memberId}/profile`).then((r) => r.data),
 
+  getBenchmark: (slug: string, memberId: string) =>
+    apiClient.get(`/portal/${slug}/member/${memberId}/benchmark`).then((r) => r.data),
+
   getCharge: (slug: string, chargeId: string) =>
     apiClient.get(`/portal/${slug}/charge/${chargeId}`).then((r) => r.data),
 

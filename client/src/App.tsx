@@ -30,6 +30,7 @@ import { MemberLoginPage } from '@/pages/portal/MemberLoginPage'
 import { PaymentPage } from '@/pages/portal/PaymentPage'
 import { PaymentCallbackPage } from '@/pages/portal/PaymentCallbackPage'
 import { PaymentHistoryPage } from '@/pages/portal/PaymentHistoryPage'
+import { CollectPage } from '@/pages/portal/CollectPage'
 import { VerificationInfoPage } from '@/pages/portal/VerificationInfoPage'
 
 // Admin pages
@@ -69,6 +70,7 @@ function App() {
           <Route path="profile/:memberId" element={<MemberProfilePage />} />
           <Route path="pay/:chargeId" element={<PaymentPage />} />
           <Route path="history" element={<PaymentHistoryPage />} />
+          <Route path="collect" element={<CollectPage />} />
         </Route>
 
         {/* Public info pages */}

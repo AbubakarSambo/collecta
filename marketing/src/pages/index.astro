@@ -2,240 +2,314 @@
 import Layout from '../layouts/Layout.astro'
 
 const APP_URL = 'https://app.collecta.services'
+const REGISTER = `${APP_URL}/register`
 
-const features = [
-  {
-    icon: '🏷️',
-    title: 'Branded Payment Page',
-    description: 'Your community gets a branded URL — collecta.services/pay/yourname. Members pay directly without confusion.',
-  },
-  {
-    icon: '💰',
-    title: 'Two Fee Types',
-    description: 'ASSIGNED fees auto-generate monthly charges per member. OPEN fees let members pick and pay on demand.',
-  },
-  {
-    icon: '🔔',
-    title: 'Auto Reminders',
-    description: 'Automated WhatsApp, SMS, and email reminders go out to non-payers — no more manual chasing.',
-  },
-  {
-    icon: '📊',
-    title: 'Compliance Tracking',
-    description: 'See exactly who is current and who is overdue. Export compliance reports in one click.',
-  },
+const proofItems = [
+  "Paystack (Nigeria) · M-Pesa via Africa's Talking (Kenya)",
+  'NGN & KES supported',
+  'Card, bank transfer, USSD & mobile money',
+  "SMS via Africa's Talking",
+  'Automated reminders & penalties',
+  'Automatic payment tracking',
 ]
 
 const steps = [
-  {
-    number: '01',
-    title: 'Create your network',
-    description: 'Sign up, give your community a name and branded slug. Takes 2 minutes.',
-  },
-  {
-    number: '02',
-    title: 'Add members and fees',
-    description: 'Import members via CSV or add manually. Create fees and assign them — system generates charges automatically.',
-  },
-  {
-    number: '03',
-    title: 'Collect and track',
-    description: 'Members pay via Paystack on your branded page. You see real-time compliance and payment status.',
-  },
+  { n: '01', title: 'Create your network', body: 'Set up your estate, group, or organisation. Add members one by one or upload a CSV list. Every network gets its own payment portal link instantly.' },
+  { n: '02', title: 'Define your fees', body: 'Set assigned fees (everyone owes a fixed amount) or open fees (members choose from options you define). Set due dates, grace periods, and penalty rules.' },
+  { n: '03', title: 'Automate collection', body: 'Set your reminder rules once and Collecta handles the rest — SMS and email reminders go out automatically, late fees apply after grace periods, and you are notified the moment a payment lands.' },
+  { n: '04', title: 'Track and report', body: 'Real-time dashboard shows collection totals, recent payments, and collection rate. Every transaction is recorded with a full audit trail.' },
+  { n: '05', title: 'Collect and grow', body: "Watch your collection rate climb. Share your portal link on WhatsApp, embed it in your website, or let Collecta's reminders do the work. Your members pay. Your account receives." },
+]
+
+const features = [
+  { icon: '📨', title: 'Automated reminders', body: 'Scheduled SMS and email reminders fire automatically before and after due dates. No manual WhatsApp messages. No awkward conversations.' },
+  { icon: '⚖️', title: 'Penalties & late fees', body: "Set a grace period and a penalty percentage. Collecta applies late fees automatically and updates the member's balance without any admin action." },
+  { icon: '💳', title: 'Two fee types', body: 'Assigned fees (everyone owes a set amount) and open fees (members choose from options you define — event access, service tiers, top-up amounts).' },
+  { icon: '🔗', title: 'Embed anywhere', body: 'Drop your payment portal into your own website with one line of code. Members pay without leaving your site.' },
+  { icon: '🏘️', title: 'Networks & clusters', body: 'Manage multiple estates or groups from one dashboard. Ideal for property management companies running several developments simultaneously.' },
+  { icon: '🏦', title: 'Direct payout account', body: "Attach your bank account and collected fees flow directly to you via Paystack — minus Collecta's transparent platform fee. Settlement is next business day." },
+  { icon: '📊', title: 'Reports & audit trails', body: "Real-time view of who has paid and who hasn't, collection totals, and payment history. Full audit trail of every transaction stored automatically." },
+  { icon: '🚫', title: 'Access control', body: 'Restrict access for persistently overdue members as a prompt to pay. Once cleared, the admin reinstates access — a straightforward lever for compliance.' },
+]
+
+const whoUses = [
+  { icon: '🏘️', title: 'Residential estates', body: 'Service charges, facility fees, security levies. Built for the estate manager tired of chasing 200 residents on WhatsApp.' },
+  { icon: '🏢', title: 'Property managers', body: 'Manage multiple developments from one dashboard. Each estate gets its own portal, fee structure, and payment history.' },
+  { icon: '🤝', title: 'Cooperatives & associations', body: 'Ajo groups, savings cooperatives, professional associations, alumni networks. Contributions tracked and enforced transparently.' },
+  { icon: '🎓', title: 'Schools', body: 'Term fees, activity levies, uniform charges. Parents pay via card, bank transfer, or USSD. Finance teams spend less time on follow-ups.' },
+  { icon: '💪', title: 'Gyms & clubs', body: 'Monthly membership fees and recurring subscriptions. Members pay through your portal and get reminded automatically at renewal.' },
+  { icon: '💼', title: 'Debt collectors', body: 'Upload a list of people who owe you — name, phone, amount, due date. Collecta sends reminders and they pay through the portal.' },
+  { icon: '🗑️', title: 'Service providers', body: 'Waste collection, security services, facility management. Bill clients professionally and track compliance without the paperwork.' },
+]
+
+const pricingFeatures = [
+  'Payment portal — share a link or embed in your site',
+  'Assigned & open payment types',
+  'Automated SMS & email reminders',
+  '50 free SMS credits when you go live',
+  'SMS credits top up with every payment collected',
+  'CSV import for large member lists',
+  'Dashboard, payment tracking & audit trail',
+  'Penalties, access control & blast messaging',
+  'Multiple networks from one account',
 ]
 ---
 
-<Layout title="Collect Community Fees Without the Chaos">
+<Layout title="Collect Smarter">
   <!-- NAV -->
-  <nav class="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-gray-100">
-    <div class="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600 text-white font-bold text-sm">
-          C
+  <nav class="sticky top-0 z-[100] border-b border-line bg-white/90 backdrop-blur-md">
+    <div class="mx-auto flex h-16 max-w-[1100px] items-center justify-between px-6">
+      <a href="/" class="flex items-center gap-2.5">
+        <div class="flex h-9 w-9 items-center justify-center rounded-[9px] bg-black">
+          <span class="font-display text-lg font-extrabold text-brand">C</span>
         </div>
-        <span class="text-lg font-bold text-gray-900">Collecta</span>
+        <span class="font-display text-xl font-bold text-black">Collecta</span>
+      </a>
+      <div class="hidden items-center gap-8 md:flex">
+        <a href="#how-it-works" class="text-sm font-medium text-stone transition-colors hover:text-black">How it works</a>
+        <a href="#features" class="text-sm font-medium text-stone transition-colors hover:text-black">Features</a>
+        <a href="#pricing" class="text-sm font-medium text-stone transition-colors hover:text-black">Pricing</a>
       </div>
-      <div class="flex items-center gap-4">
-        <a href={`${APP_URL}/login`} class="text-sm text-gray-600 hover:text-gray-900">Sign in</a>
-        <a
-          href={`${APP_URL}/register`}
-          class="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition-colors"
-        >
-          Get started free
-        </a>
-      </div>
+      <a href={REGISTER} class="inline-flex items-center gap-2 rounded-full border border-brand bg-brand px-[18px] py-[9px] text-[13px] font-semibold text-black transition-all hover:bg-brand-deep">Get started →</a>
     </div>
   </nav>
 
   <!-- HERO -->
-  <section class="bg-gradient-to-b from-green-50 to-white py-20 px-4">
-    <div class="mx-auto max-w-4xl text-center">
-      <div class="mb-4 inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-1.5 text-sm font-medium text-green-800">
-        🇳🇬 Nigeria-first • Paystack-powered
+  <section class="hero-glow relative overflow-hidden bg-black py-24">
+    <div class="mx-auto max-w-[1100px] px-6">
+      <div class="grid grid-cols-1 items-center gap-12 md:grid-cols-2 md:gap-16">
+        <div>
+          <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-brand/25 bg-brand/10 px-3.5 py-1.5 text-[13px] font-medium text-brand">
+            <span class="h-1.5 w-1.5 rounded-full bg-brand"></span> 🇳🇬 Live in Nigeria · 🇰🇪 Kenya coming soon
+          </div>
+          <h1 class="mb-5 text-[clamp(2.6rem,6vw,4.4rem)] font-extrabold text-white">
+            Collect fees.<br /><span class="text-brand">Without the chase.</span>
+          </h1>
+          <p class="mb-9 max-w-[480px] text-[17px] leading-relaxed text-white/60">
+            Collecta helps estates, chamas, suppliers, and community groups collect fees — without awkward follow-ups, manual chasing, or administrative burnout. Set up in minutes. Portal live within 24 hours.
+          </p>
+          <a href={REGISTER} class="inline-flex items-center gap-2 rounded-full bg-brand px-[34px] py-4 text-base font-semibold text-black transition-all hover:bg-brand-deep">Get started free →</a>
+          <div class="mt-12 flex gap-8 border-t border-white/10 pt-10">
+            <div>
+              <div class="font-display text-[2rem] font-extrabold leading-none text-brand">&lt;10m</div>
+              <div class="mt-1 text-[13px] text-white/45">to first payment link</div>
+            </div>
+            <div>
+              <div class="font-display text-[2rem] font-extrabold leading-none text-brand">0</div>
+              <div class="mt-1 text-[13px] text-white/45">awkward follow-ups</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dashboard mock -->
+        <div>
+          <div class="rounded-[20px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-sm">
+            <div class="mb-5 flex items-center justify-between">
+              <span class="font-display text-[15px] font-bold text-white">Greenpark Estate</span>
+              <span class="rounded-full bg-brand/15 px-2.5 py-1 text-[11px] font-semibold text-brand">● Live</span>
+            </div>
+            <div class="mb-5 grid grid-cols-2 gap-3">
+              <div class="rounded-xl border border-white/10 bg-white/[0.06] p-3.5">
+                <div class="mb-1.5 text-[11px] text-white/40">Collected (Oct)</div>
+                <div class="font-display text-xl font-bold text-brand">₦2.4M</div>
+              </div>
+              <div class="rounded-xl border border-white/10 bg-white/[0.06] p-3.5">
+                <div class="mb-1.5 text-[11px] text-white/40">Collection rate</div>
+                <div class="font-display text-xl font-bold text-white">82%</div>
+              </div>
+            </div>
+            <div class="mb-2.5 text-[12px] font-medium text-white/30">RECENT ACTIVITY</div>
+            <div class="flex flex-col gap-2">
+              {[
+                { name: 'Ahmed Maina · Flat 4B', s: 'Paid', c: 'bg-green-500/15 text-green-400' },
+                { name: 'Nneka Dabiri · 20 Makina St', s: 'Paid', c: 'bg-green-500/15 text-green-400' },
+                { name: 'Mercy Kariuki · Flat 7A', s: 'Due today', c: 'bg-brand/15 text-brand' },
+                { name: 'Olu Tolani · Plot 12', s: 'Overdue', c: 'bg-red-500/15 text-red-400' },
+                { name: 'Fatima Bello · Flat 2C', s: 'Paid', c: 'bg-green-500/15 text-green-400' },
+              ].map((r) => (
+                <div class="flex items-center justify-between rounded-lg bg-white/[0.04] px-3 py-2.5">
+                  <span class="text-[13px] text-white/70">{r.name}</span>
+                  <span class={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${r.c}`}>{r.s}</span>
+                </div>
+              ))}
+            </div>
+            <div class="mt-4 flex items-center justify-between border-t border-white/[0.07] pt-3.5">
+              <span class="text-[12px] text-white/35">47 of 52 members paid this month</span>
+              <span class="text-[12px] font-semibold text-brand">Send reminder →</span>
+            </div>
+          </div>
+          <div class="mt-6 inline-flex items-center gap-2.5 rounded-[10px] border border-brand/25 bg-brand/10 px-4 py-3.5">
+            <span class="text-lg">🔒</span>
+            <p class="text-[13px] text-white/65">Set up takes 2 minutes. Portal goes live within 24 hours of verification approval.</p>
+          </div>
+        </div>
       </div>
-      <h1 class="text-5xl font-bold text-gray-900 leading-tight">
-        The smartest way to collect fees<br />in your community
-      </h1>
-      <p class="mt-6 text-xl text-gray-600 max-w-2xl mx-auto">
-        Estate managers, coop admins, gym owners — collect dues from members without the chaos.
-        Automated charges, branded payment pages, and zero chasing.
-      </p>
-      <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-        <a
-          href={`${APP_URL}/register`}
-          class="rounded-xl bg-green-600 px-8 py-4 text-lg font-semibold text-white hover:bg-green-700 transition-colors shadow-lg shadow-green-200"
-        >
-          Create Your Network Free
-        </a>
-        <a
-          href="#how-it-works"
-          class="rounded-xl border-2 border-gray-200 px-8 py-4 text-lg font-semibold text-gray-700 hover:border-gray-300 transition-colors"
-        >
-          See How It Works
-        </a>
-      </div>
-      <p class="mt-4 text-sm text-gray-400">No credit card required. Free to start.</p>
     </div>
   </section>
 
-  <!-- SOCIAL PROOF -->
-  <section class="py-8 bg-white border-y border-gray-100">
-    <div class="mx-auto max-w-4xl px-4 text-center">
-      <p class="text-gray-500 text-sm font-medium tracking-wide uppercase">
-        Trusted by 500+ community admins across Nigeria
-      </p>
-      <div class="mt-4 flex flex-wrap justify-center gap-6 text-gray-400 text-sm">
-        <span>Estate Managers</span>
-        <span>•</span>
-        <span>Cooperative Societies</span>
-        <span>•</span>
-        <span>Sports Clubs</span>
-        <span>•</span>
-        <span>Alumni Associations</span>
-        <span>•</span>
-        <span>Religious Groups</span>
+  <!-- PROOF STRIP -->
+  <div class="border-y border-[#F0E098] bg-brand-pale py-5">
+    <div class="mx-auto max-w-[1100px] px-6">
+      <div class="no-scrollbar flex items-center gap-8 overflow-x-auto whitespace-nowrap">
+        {proofItems.map((item, i) => (
+          <>
+            {i > 0 && <span class="shrink-0 text-ink/30">·</span>}
+            <div class="flex shrink-0 items-center gap-2.5 text-sm font-medium text-ink">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-brand-deep"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              {item}
+            </div>
+          </>
+        ))}
+      </div>
+    </div>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <section class="py-24" id="how-it-works">
+    <div class="mx-auto max-w-[1100px] px-6 text-center">
+      <div class="mb-4 inline-flex items-center gap-2 rounded-full bg-brand-mid px-3 py-1.5 text-xs font-bold uppercase tracking-[0.1em] text-brand-deep">How it works</div>
+      <h2 class="text-[clamp(1.8rem,4vw,2.8rem)] font-bold text-black">Set up once.<br />Collections run themselves.</h2>
+      <p class="mx-auto mt-4 max-w-[520px] text-stone">Set up your network and payment portal in minutes. Payments go live once your details are verified — usually within 24 hours.</p>
+      <div class="mt-14 grid grid-cols-1 gap-px overflow-hidden rounded-[14px] bg-line sm:grid-cols-2 lg:grid-cols-3">
+        {steps.map((step) => (
+          <div class="bg-white p-8 text-left transition-colors hover:bg-brand-pale">
+            <div class="mb-4 flex h-8 w-8 items-center justify-center rounded-lg bg-brand-mid font-display text-[13px] font-bold text-brand-deep">{step.n}</div>
+            <h3 class="mb-2 text-[15px] font-semibold text-black">{step.title}</h3>
+            <p class="text-sm leading-relaxed text-stone">{step.body}</p>
+          </div>
+        ))}
       </div>
     </div>
   </section>
 
   <!-- FEATURES -->
-  <section class="py-20 px-4 bg-white">
-    <div class="mx-auto max-w-6xl">
-      <div class="text-center mb-12">
-        <h2 class="text-3xl font-bold text-gray-900">Everything you need to collect fees</h2>
-        <p class="mt-3 text-gray-500 max-w-xl mx-auto">
-          Purpose-built for African community administrators who are tired of chasing payments on WhatsApp.
-        </p>
-      </div>
-      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {features.map(feature => (
-          <div class="rounded-2xl border border-gray-100 bg-gray-50 p-6 hover:border-green-200 hover:bg-green-50 transition-colors">
-            <div class="text-3xl mb-3">{feature.icon}</div>
-            <h3 class="text-lg font-semibold text-gray-900">{feature.title}</h3>
-            <p class="mt-2 text-sm text-gray-500 leading-relaxed">{feature.description}</p>
+  <section class="bg-surface py-24" id="features">
+    <div class="mx-auto max-w-[1100px] px-6">
+      <div class="mb-4 inline-flex items-center gap-2 rounded-full bg-brand-mid px-3 py-1.5 text-xs font-bold uppercase tracking-[0.1em] text-brand-deep">Features</div>
+      <h2 class="text-[clamp(1.8rem,4vw,2.8rem)] font-bold text-black">Everything you need.<br />Nothing you don't.</h2>
+      <div class="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {features.map((f) => (
+          <div class="feature-card relative overflow-hidden rounded-[14px] border-[1.5px] border-line bg-white p-7 transition-all hover:border-brand hover:shadow-[0_8px_40px_rgba(0,0,0,0.12)]">
+            <div class="mb-4 flex h-11 w-11 items-center justify-center rounded-[10px] bg-brand-mid text-xl">{f.icon}</div>
+            <h3 class="mb-2 text-base font-semibold text-black">{f.title}</h3>
+            <p class="text-sm text-stone">{f.body}</p>
           </div>
         ))}
       </div>
     </div>
   </section>
 
-  <!-- HOW IT WORKS -->
-  <section id="how-it-works" class="py-20 px-4 bg-gray-50">
-    <div class="mx-auto max-w-4xl">
-      <div class="text-center mb-12">
-        <h2 class="text-3xl font-bold text-gray-900">Up and running in minutes</h2>
-      </div>
-      <div class="space-y-8">
-        {steps.map(step => (
-          <div class="flex items-start gap-6">
-            <div class="flex-shrink-0 flex h-12 w-12 items-center justify-center rounded-full bg-green-600 text-white font-bold text-lg">
-              {step.number}
-            </div>
-            <div>
-              <h3 class="text-xl font-semibold text-gray-900">{step.title}</h3>
-              <p class="mt-1 text-gray-500">{step.description}</p>
-            </div>
+  <!-- WHO USES -->
+  <section class="py-24" id="who">
+    <div class="mx-auto max-w-[1100px] px-6 text-center">
+      <div class="mb-4 inline-flex items-center gap-2 rounded-full bg-brand-mid px-3 py-1.5 text-xs font-bold uppercase tracking-[0.1em] text-brand-deep">Who uses Collecta</div>
+      <h2 class="text-[clamp(1.8rem,4vw,2.8rem)] font-bold text-black">Built for any group<br />that collects recurring fees.</h2>
+      <div class="mt-13 grid grid-cols-1 gap-5 pt-8 text-left sm:grid-cols-2 lg:grid-cols-3">
+        {whoUses.map((w) => (
+          <div class="rounded-[14px] bg-surface p-7 transition-all hover:-translate-y-1 hover:bg-brand-pale hover:shadow-[0_8px_40px_rgba(0,0,0,0.12)]">
+            <div class="mb-3.5 text-[28px]">{w.icon}</div>
+            <h3 class="mb-2 text-lg font-semibold text-black">{w.title}</h3>
+            <p class="text-sm text-stone">{w.body}</p>
           </div>
         ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- BUILT ON -->
+  <section class="bg-surface py-24">
+    <div class="mx-auto max-w-[1100px] px-6 text-center">
+      <div class="mb-4 inline-flex items-center gap-2 rounded-full bg-brand-mid px-3 py-1.5 text-xs font-bold uppercase tracking-[0.1em] text-brand-deep">Built on</div>
+      <h2 class="text-[clamp(1.8rem,4vw,2.8rem)] font-bold text-black">Infrastructure you can trust.</h2>
+      <p class="mx-auto mt-4 max-w-[520px] text-stone">Built on Paystack for payments, Africa's Talking for SMS, and Supabase for data — the same infrastructure trusted by thousands of Nigerian and Kenyan businesses.</p>
+      <div class="mt-10 flex flex-wrap items-center justify-center gap-12">
+        <div><p class="text-[22px] font-extrabold text-black">Paystack</p><p class="text-[13px] text-mist">Payments & settlement</p></div>
+        <div><p class="text-[22px] font-extrabold text-black">Africa's Talking</p><p class="text-[13px] text-mist">SMS reminders</p></div>
+        <div><p class="text-[22px] font-extrabold text-black">Supabase</p><p class="text-[13px] text-mist">Secure data storage</p></div>
       </div>
     </div>
   </section>
 
   <!-- PRICING -->
-  <section class="py-20 px-4 bg-white">
-    <div class="mx-auto max-w-4xl text-center">
-      <h2 class="text-3xl font-bold text-gray-900">Simple, honest pricing</h2>
-      <p class="mt-3 text-gray-500">Start free. Upgrade as you grow.</p>
+  <section class="py-24" id="pricing">
+    <div class="mx-auto max-w-[1100px] px-6 text-center">
+      <div class="mb-4 inline-flex items-center gap-2 rounded-full bg-brand-mid px-3 py-1.5 text-xs font-bold uppercase tracking-[0.1em] text-brand-deep">Pricing</div>
+      <h2 class="text-[clamp(1.8rem,4vw,2.8rem)] font-bold text-black">Simple pricing.<br />No surprises.</h2>
+      <p class="mx-auto mt-4 max-w-[480px] text-stone">No setup fees. No monthly subscription. No contracts. You pay Collecta only when you collect.</p>
 
-      <div class="mt-10 grid gap-6 sm:grid-cols-2 max-w-2xl mx-auto">
-        <div class="rounded-2xl border-2 border-gray-200 p-8 text-left">
-          <h3 class="text-xl font-bold text-gray-900">Starter</h3>
-          <p class="mt-2 text-4xl font-bold text-gray-900">Free</p>
-          <p class="mt-1 text-sm text-gray-500">Forever</p>
-          <ul class="mt-6 space-y-2 text-sm text-gray-600">
-            <li>✓ Up to 50 members</li>
-            <li>✓ Paystack payments</li>
-            <li>✓ Basic reminders</li>
-            <li>✓ Branded portal</li>
-          </ul>
-          <a href={`${APP_URL}/register`} class="mt-6 block text-center rounded-lg border-2 border-green-600 px-4 py-2.5 text-sm font-semibold text-green-700 hover:bg-green-50 transition-colors">
-            Get started
-          </a>
+      <div class="mx-auto mt-10 max-w-[480px]">
+        <div class="overflow-hidden rounded-[14px] border-[1.5px] border-line text-left">
+          <div class="bg-black px-9 py-7 text-center">
+            <p class="text-4xl font-extrabold leading-none text-brand">₦200 <span class="text-xl font-semibold">+ 2%</span></p>
+            <p class="mt-1.5 text-sm text-white/70">per transaction collected</p>
+            <p class="mt-1 text-[13px] font-bold text-brand">capped at ₦3,000</p>
+          </div>
+          <div class="p-9">
+            <ul class="mb-7">
+              {pricingFeatures.map((f) => (
+                <li class="flex items-start gap-2 border-b border-line py-1.5 text-sm text-stone last:border-0">
+                  <span class="font-bold text-brand-deep">✓</span> {f}
+                </li>
+              ))}
+            </ul>
+            <a href={REGISTER} class="flex w-full items-center justify-center rounded-full bg-brand px-6 py-3 text-sm font-semibold text-black transition-all hover:bg-brand-deep">Start collecting →</a>
+          </div>
         </div>
-
-        <div class="rounded-2xl border-2 border-green-600 bg-green-50 p-8 text-left relative">
-          <div class="absolute top-4 right-4 rounded-full bg-green-600 px-2.5 py-0.5 text-xs font-semibold text-white">Popular</div>
-          <h3 class="text-xl font-bold text-gray-900">Pro</h3>
-          <p class="mt-2 text-4xl font-bold text-gray-900">₦5,000<span class="text-lg text-gray-500 font-normal">/mo</span></p>
-          <p class="mt-1 text-sm text-gray-500">Per network</p>
-          <ul class="mt-6 space-y-2 text-sm text-gray-600">
-            <li>✓ Unlimited members</li>
-            <li>✓ WhatsApp + SMS reminders</li>
-            <li>✓ PDF & Excel exports</li>
-            <li>✓ Penalty automation</li>
-            <li>✓ Priority support</li>
-          </ul>
-          <a href={`${APP_URL}/register`} class="mt-6 block text-center rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700 transition-colors">
-            Start free trial
-          </a>
+        <div class="mt-4 flex items-start gap-2.5 rounded-lg border border-line bg-surface px-4 py-3.5 text-left">
+          <span class="shrink-0 text-base">📱</span>
+          <p class="text-[13px] text-stone">Paystack also charges their own processing fee (~1.5% + ₦100) per transaction — their charge, not ours. SMS credits are earned automatically per payment collected; if they run out, SMS pauses and you are notified. Email reminders continue regardless.</p>
         </div>
       </div>
     </div>
   </section>
 
   <!-- CTA -->
-  <section class="py-20 px-4 bg-green-600">
-    <div class="mx-auto max-w-3xl text-center">
-      <h2 class="text-3xl font-bold text-white">Ready to end payment chaos?</h2>
-      <p class="mt-3 text-green-100">
-        Join 500+ community admins already using Collecta to collect fees on time, every time.
-      </p>
-      <a
-        href={`${APP_URL}/register`}
-        class="mt-8 inline-block rounded-xl bg-white px-10 py-4 text-lg font-bold text-green-700 hover:bg-green-50 transition-colors shadow-lg"
-      >
-        Create Your Network Free →
-      </a>
+  <section class="bg-brand py-24 text-center">
+    <div class="mx-auto max-w-[1100px] px-6">
+      <h2 class="text-[clamp(1.8rem,4vw,2.8rem)] font-bold text-black">Stop chasing. Start collecting.</h2>
+      <p class="mx-auto mb-9 mt-4 max-w-[520px] text-[17px] text-black/55">Set up your network in minutes and let Collecta handle the reminders, penalties, and tracking — so you never send another awkward follow-up.</p>
+      <a href={REGISTER} class="inline-flex items-center gap-2 rounded-full bg-black px-[34px] py-4 text-base font-semibold text-white transition-all hover:bg-charcoal">Get started free →</a>
     </div>
   </section>
 
   <!-- FOOTER -->
-  <footer class="bg-gray-900 py-12 px-4">
-    <div class="mx-auto max-w-6xl">
-      <div class="flex items-center justify-between flex-wrap gap-4">
-        <div class="flex items-center gap-2">
-          <div class="flex h-7 w-7 items-center justify-center rounded-md bg-green-600 text-white font-bold text-sm">C</div>
-          <span class="text-white font-semibold">Collecta</span>
+  <footer class="bg-charcoal pb-8 pt-16">
+    <div class="mx-auto max-w-[1100px] px-6">
+      <div class="mb-12 grid grid-cols-2 gap-8 md:grid-cols-4 md:gap-12">
+        <div class="col-span-2 md:col-span-1">
+          <a href="/" class="flex items-center gap-2.5">
+            <div class="flex h-9 w-9 items-center justify-center rounded-[9px] bg-black"><span class="font-display text-lg font-extrabold text-brand">C</span></div>
+            <span class="font-display text-xl font-bold text-white">Collecta</span>
+          </a>
+          <p class="mt-3 max-w-[260px] text-sm text-white/40">Collect fees without the chase. Built for African communities, estates, and groups.</p>
         </div>
-        <div class="flex gap-6 text-sm text-gray-400">
-          <a href="/privacy" class="hover:text-white">Privacy</a>
-          <a href="/terms" class="hover:text-white">Terms</a>
-          <a href="mailto:hello@collecta.services" class="hover:text-white">Contact</a>
+        <div>
+          <h4 class="mb-4 font-display text-[13px] font-bold uppercase tracking-[0.08em] text-white/30">Product</h4>
+          <ul class="space-y-2.5">
+            <li><a href="#how-it-works" class="text-sm text-white/55 transition-colors hover:text-brand">How it works</a></li>
+            <li><a href="#features" class="text-sm text-white/55 transition-colors hover:text-brand">Features</a></li>
+            <li><a href="#pricing" class="text-sm text-white/55 transition-colors hover:text-brand">Pricing</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="mb-4 font-display text-[13px] font-bold uppercase tracking-[0.08em] text-white/30">Company</h4>
+          <ul class="space-y-2.5">
+            <li><a href={REGISTER} class="text-sm text-white/55 transition-colors hover:text-brand">Get started</a></li>
+            <li><a href={`${APP_URL}/login`} class="text-sm text-white/55 transition-colors hover:text-brand">Sign in</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="mb-4 font-display text-[13px] font-bold uppercase tracking-[0.08em] text-white/30">Legal</h4>
+          <ul class="space-y-2.5">
+            <li><a href={`${APP_URL}/terms`} class="text-sm text-white/55 transition-colors hover:text-brand">Terms</a></li>
+            <li><a href={`${APP_URL}/privacy`} class="text-sm text-white/55 transition-colors hover:text-brand">Privacy</a></li>
+          </ul>
         </div>
       </div>
-      <p class="mt-6 text-sm text-gray-500">
-        © {new Date().getFullYear()} Collecta. Built for African communities.
-      </p>
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-7">
+        <p class="text-[13px] text-white/30">© 2026 Collecta. All rights reserved.</p>
+        <p class="text-[13px] text-white/30">🇳🇬 Nigeria · 🇰🇪 Kenya</p>
+      </div>
     </div>
   </footer>
 </Layout>

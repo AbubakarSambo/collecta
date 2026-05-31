@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { CheckCircle } from 'lucide-react'
 import { authApi } from '@/api/auth'
@@ -38,11 +38,17 @@ type Step2Data = z.infer<typeof step2Schema>
 
 export function RegisterPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const referralSource = searchParams.get('ref') || undefined
+  const referredType = searchParams.get('type') || undefined
   const [step, setStep] = useState(1)
   const [step1Data, setStep1Data] = useState<Step1Data | null>(null)
 
   const form1 = useForm<Step1Data>({ resolver: zodResolver(step1Schema) })
-  const form2 = useForm<Step2Data>({ resolver: zodResolver(step2Schema) })
+  const form2 = useForm<Step2Data>({
+    resolver: zodResolver(step2Schema),
+    defaultValues: referredType ? { networkType: referredType } : undefined,
+  })
 
   const handleStep1 = (data: Step1Data) => {
     setStep1Data(data)
@@ -61,6 +67,7 @@ export function RegisterPage() {
       await authApi.register({
         ...step1Data,
         ...data,
+        ...(referralSource ? { referralSource } : {}),
       })
       toast.success('Account created! Check your email to verify your account.')
       navigate('/verify-email')
@@ -70,10 +77,10 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12">
+    <div className="flex min-h-screen items-center justify-center bg-surface px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-green-600 text-white text-2xl font-bold">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-black text-brand-500 text-2xl font-bold font-display">
             C
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Create your network</h1>
@@ -85,7 +92,7 @@ export function RegisterPage() {
             <div key={s} className="flex items-center gap-2">
               <div
                 className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium
-                  ${s < step ? 'bg-green-600 text-white' : s === step ? 'border-2 border-green-600 text-green-600' : 'border-2 border-gray-200 text-gray-400'}`}
+                  ${s < step ? 'bg-primary text-primary-foreground' : s === step ? 'border-2 border-primary text-brand-700' : 'border-2 border-gray-200 text-gray-400'}`}
               >
                 {s < step ? <CheckCircle className="h-4 w-4" /> : s}
               </div>
@@ -233,7 +240,7 @@ export function RegisterPage() {
 
             <p className="mt-4 text-center text-sm text-gray-500">
               Already have an account?{' '}
-              <Link to="/login" className="text-green-600 hover:underline font-medium">
+              <Link to="/login" className="text-brand-700 hover:underline font-medium">
                 Sign in
               </Link>
             </p>

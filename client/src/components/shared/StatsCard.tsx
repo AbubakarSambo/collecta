@@ -15,8 +15,8 @@ export function StatsCard({
   title,
   value,
   icon: Icon,
-  iconColor = 'text-green-600',
-  iconBg = 'bg-green-100',
+  iconColor = 'text-brand-700',
+  iconBg = 'bg-brand-100',
   description,
 }: StatsCardProps) {
   return (

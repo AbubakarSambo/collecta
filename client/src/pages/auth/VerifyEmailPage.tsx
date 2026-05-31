@@ -36,9 +36,9 @@ export function VerifyEmailPage() {
 
   if (!token) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      <div className="flex min-h-screen items-center justify-center bg-surface px-4">
         <div className="max-w-md text-center">
-          <Mail className="mx-auto mb-4 h-14 w-14 text-green-600" />
+          <Mail className="mx-auto mb-4 h-14 w-14 text-brand-600" />
           <h1 className="text-2xl font-bold text-gray-900">Check your email</h1>
           <p className="mt-2 text-gray-500">
             We sent a verification link to your email address. Click the link to verify your account.
@@ -52,7 +52,7 @@ export function VerifyEmailPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-surface px-4">
       <div className="max-w-md text-center">
         {status === 'loading' && (
           <>
