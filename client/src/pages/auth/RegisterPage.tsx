@@ -36,7 +36,6 @@ const step2Schema = z.object({
 const step3Schema = z.object({
   organisationName: z.string().min(1, 'Organisation name is required').max(200),
   cacNumber: z.string().max(50).optional(),
-  bvn: z.string().max(20).optional(),
   nin: z.string().max(20).optional(),
   contactAddress: z.string().min(1, 'Contact address is required').max(300),
 })
@@ -70,7 +69,7 @@ export function RegisterPage() {
   const handleNetworkNameChange = (name: string) => {
     const slug = generateSlug(name)
     form2.setValue('networkSlug', slug)
-    if (!form3.getValues('organisationName')) {
+    if (!form3.formState.dirtyFields.organisationName) {
       form3.setValue('organisationName', name)
     }
   }
@@ -285,7 +284,7 @@ export function RegisterPage() {
                     Reviewed within 24 hours.
                   </p>
                   <p className="text-xs text-blue-700 font-medium">
-                    Have ready: your BVN or CAC number, and your bank account number.
+                    Have ready: your CAC number, and your bank account number.
                   </p>
                 </div>
 
@@ -299,15 +298,9 @@ export function RegisterPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="cacNumber">CAC number (optional)</Label>
-                    <Input id="cacNumber" placeholder="RC1234567" {...form3.register('cacNumber')} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="bvn">BVN (individual collectors)</Label>
-                    <Input id="bvn" placeholder="12345678901" {...form3.register('bvn')} />
-                  </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="cacNumber">CAC number (optional)</Label>
+                  <Input id="cacNumber" placeholder="RC1234567" {...form3.register('cacNumber')} />
                 </div>
 
                 <div className="space-y-1.5">

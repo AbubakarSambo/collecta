@@ -40,7 +40,10 @@ export class PortalService {
         where: {
           networkId,
           status: 'ACTIVE',
-          charges: { none: { status: { in: ['OVERDUE', 'PENDING', 'PARTIALLY_PAID'] } } },
+          charges: {
+            some: { status: 'PAID' },
+            none: { status: { in: ['OVERDUE', 'PENDING', 'PARTIALLY_PAID'] } },
+          },
         },
       }),
     ]);

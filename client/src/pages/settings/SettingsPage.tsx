@@ -144,7 +144,6 @@ export function SettingsPage() {
     defaultValues: {
       organisationName: '',
       cacNumber: '',
-      bvn: '',
       nin: '',
       contactAddress: '',
     },
@@ -460,15 +459,9 @@ export function SettingsPage() {
                       placeholder="Greenpark Estate Residents Association"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label>CAC number (optional)</Label>
-                      <Input {...verificationForm.register('cacNumber')} placeholder="RC1234567" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>BVN (individual collectors)</Label>
-                      <Input {...verificationForm.register('bvn')} placeholder="12345678901" />
-                    </div>
+                  <div className="space-y-1">
+                    <Label>CAC number (optional)</Label>
+                    <Input {...verificationForm.register('cacNumber')} placeholder="RC1234567" />
                   </div>
                   <div className="space-y-1">
                     <Label>NIN (optional)</Label>
