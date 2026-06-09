@@ -70,14 +70,16 @@ export class RemindersService {
     const fmt = (n: number) => `NGN ${n.toLocaleString('en-NG')}`;
     let msg: string;
 
+    const tag = ' - Collecta';
+
     switch (tone) {
       case 'FRIENDLY': {
         const extra = socialProof ? ` ${socialProof}` : '';
-        msg = `Hi ${name}, your ${feeName} of ${fmt(amount)} is due soon.${extra} Pay: ${payLink}`;
+        msg = `Hi ${name}, your ${feeName} of ${fmt(amount)} is due soon.${extra} Pay: ${payLink}${tag}`;
         return msg.length > 160 ? msg.substring(0, 157) + '...' : msg;
       }
       case 'CLEAR':
-        msg = `${name}, your ${feeName} of ${fmt(amount)} is due today. Pay now: ${payLink}`;
+        msg = `${name}, your ${feeName} of ${fmt(amount)} is due today. Pay now: ${payLink}${tag}`;
         return msg.substring(0, 160);
       case 'FIRM': {
         const daysLeft = 5 - daysFromDue;
@@ -85,14 +87,14 @@ export class RemindersService {
           penaltyPercent > 0
             ? ` A ${penaltyPercent}% penalty applies after ${daysLeft} more day${daysLeft === 1 ? '' : 's'}.`
             : '';
-        msg = `${name}, your ${feeName} of ${fmt(amount)} is ${daysFromDue} day${daysFromDue === 1 ? '' : 's'} overdue.${penalty} Pay: ${payLink}`;
+        msg = `${name}, your ${feeName} of ${fmt(amount)} is ${daysFromDue} day${daysFromDue === 1 ? '' : 's'} overdue.${penalty} Pay: ${payLink}${tag}`;
         return msg.substring(0, 160);
       }
       case 'FORMAL':
-        msg = `${name}, your ${feeName} payment of ${fmt(amount)} is ${daysFromDue} days overdue. Your access may be affected. Pay: ${payLink}`;
+        msg = `${name}, your ${feeName} payment of ${fmt(amount)} is ${daysFromDue} days overdue. Your access may be affected. Pay: ${payLink}${tag}`;
         return msg.substring(0, 160);
       default:
-        return `${name}, please pay your ${feeName} of ${fmt(amount)}. Pay: ${payLink}`;
+        return `${name}, please pay your ${feeName} of ${fmt(amount)}. Pay: ${payLink}${tag}`;
     }
   }
 
@@ -354,6 +356,16 @@ export class RemindersService {
             currentNetwork = await this.prisma.network.findUnique({
               where: { id: network.id },
             });
+          } else if (channel === 'WHATSAPP' && member.phone) {
+            const variables = this.buildWhatsAppVariables(
+              tone,
+              member,
+              fee.name,
+              amount,
+              daysFromDue,
+              payLink,
+            );
+            await this.sendWhatsApp(member.phone, tone, variables);
           } else {
             continue;
           }
@@ -639,31 +651,100 @@ export class RemindersService {
           `Hi ${member.firstName}, your payment of NGN ${Number(charge.amount).toLocaleString()} for ${feeName} is due. Pay now: ${paymentUrl}`,
       );
     } else if (channel === 'WHATSAPP' && member.phone) {
-      await this.sendSms(
-        member.phone,
-        customMessage ||
-          `Hi ${member.firstName}, your payment of NGN ${Number(charge.amount).toLocaleString()} for ${feeName} is due. Pay now: ${paymentUrl}`,
-      );
+      await this.sendWhatsApp(member.phone, 'GENERIC', {
+        '1': member.firstName,
+        '2': feeName,
+        '3': `NGN ${Number(charge.amount).toLocaleString('en-NG')}`,
+        '4': 'due',
+        '5': paymentUrl,
+      });
     }
   }
 
   private async sendSms(phone: string, message: string) {
-    const username = this.configService.get<string>('africasTalking.username');
-    const apiKey = this.configService.get<string>('africasTalking.apiKey');
-    this.logger.log(`sendSms: to=${phone} username=${username} apiKeySet=${!!apiKey}`);
-    try {
-      const AfricasTalking = require('africastalking');
-      const at = AfricasTalking({ apiKey, username });
-      const result = await at.SMS.send({ to: [phone], message });
-      const recipient = result?.SMSMessageData?.Recipients?.[0];
-      if (recipient && recipient.statusCode !== 101) {
-        this.logger.warn(`sendSms: AT rejected ${phone} — status=${recipient.status} (${recipient.statusCode})`);
-        throw new Error(`AT delivery failed: ${recipient.status}`);
-      }
-      this.logger.log(`sendSms: delivered to ${phone}`);
-    } catch (err) {
-      this.logger.error(`Failed to send SMS to ${phone}: ${err.message}`);
-      throw err;
+    const apiKey = this.configService.get<string>('termii.apiKey');
+    const senderId = this.configService.get<string>('termii.senderId');
+    const baseUrl = this.configService.get<string>('termii.baseUrl');
+    this.logger.log(`sendSms: to=${phone} via Termii senderId=${senderId}`);
+
+    const response = await fetch(`${baseUrl}/api/sms/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: phone,
+        from: senderId,
+        sms: message,
+        type: 'plain',
+        api_key: apiKey,
+        channel: 'generic',
+      }),
+    });
+
+    const data = await response.json() as any;
+
+    if (!response.ok || data.code !== 'ok') {
+      this.logger.warn(`sendSms: Termii rejected ${phone} — ${JSON.stringify(data)}`);
+      throw new Error(`Termii SMS failed: ${data.message ?? response.status}`);
     }
+
+    this.logger.log(`sendSms: delivered to ${phone} message_id=${data.message_id}`);
+  }
+
+  private async sendWhatsApp(
+    phone: string,
+    tone: string,
+    variables: Record<string, string>,
+  ) {
+    const apiKey = this.configService.get<string>('termii.apiKey');
+    const baseUrl = this.configService.get<string>('termii.baseUrl');
+    const deviceId = this.configService.get<string>('termii.whatsappDeviceId');
+    const templates = this.configService.get<Record<string, string>>('termii.whatsappTemplates');
+    const templateId = templates?.[tone];
+
+    if (!deviceId || !templateId) {
+      this.logger.warn(
+        `sendWhatsApp: skipping ${phone} — TERMII_WHATSAPP_DEVICE_ID or template for tone "${tone}" not configured`,
+      );
+      return;
+    }
+
+    const response = await fetch(`${baseUrl}/api/send/template`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone_number: phone,
+        device_id: deviceId,
+        template_id: templateId,
+        api_key: apiKey,
+        data: variables,
+      }),
+    });
+
+    const data = await response.json() as any;
+
+    if (!response.ok) {
+      this.logger.warn(`sendWhatsApp: Termii rejected ${phone} — ${JSON.stringify(data)}`);
+      throw new Error(`Termii WhatsApp failed: ${data.message ?? response.status}`);
+    }
+
+    this.logger.log(`sendWhatsApp: sent to ${phone} tone=${tone}`);
+  }
+
+  private buildWhatsAppVariables(
+    tone: string,
+    member: { firstName: string; lastName: string },
+    feeName: string,
+    amount: number,
+    daysFromDue: number,
+    payLink: string,
+  ): Record<string, string> {
+    const name =
+      tone === 'FORMAL' ? `${member.firstName} ${member.lastName}` : member.firstName;
+    const fmt = (n: number) => `NGN ${n.toLocaleString('en-NG')}`;
+    const dueInfo =
+      daysFromDue <= 0
+        ? 'soon'
+        : `${daysFromDue} day${daysFromDue === 1 ? '' : 's'} overdue`;
+    return { '1': name, '2': feeName, '3': fmt(amount), '4': dueInfo, '5': payLink };
   }
 }

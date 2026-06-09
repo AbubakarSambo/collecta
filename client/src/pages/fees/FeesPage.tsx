@@ -61,6 +61,7 @@ export function FeesPage() {
   const createMutation = useMutation({
     mutationFn: (data: any) => feesApi.create(networkId!, {
       ...data,
+      startDate: data.startDate || undefined,
       options: feeOptions.length > 0 ? feeOptions : undefined,
     }),
     onSuccess: () => {

@@ -12,7 +12,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { FeeType, FeeFrequency, FeePaymentType } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 
 export class CreateFeeDto {
   @ApiProperty({ example: 'Monthly Estate Dues' })
@@ -56,6 +56,7 @@ export class CreateFeeDto {
 
   @ApiPropertyOptional({ example: '2024-01-01', description: 'Date the fee becomes active and charges start (ISO string). For ONE_TIME fees, this is the specific charge date.' })
   @IsOptional()
+  @Transform(({ value }) => value || undefined)
   @IsDateString()
   startDate?: string;
 
