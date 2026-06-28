@@ -2,6 +2,7 @@ import { Menu, LogOut, ExternalLink } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/auth.store'
 import { Button } from '@/components/ui/Button'
+import { useAnalytics } from '@/hooks/useAnalytics'
 
 interface HeaderProps {
   onMenuClick: () => void
@@ -10,9 +11,12 @@ interface HeaderProps {
 export function Header({ onMenuClick }: HeaderProps) {
   const { user, clearAuth } = useAuthStore()
   const navigate = useNavigate()
+  const { track, reset } = useAnalytics()
 
   const handleLogout = () => {
+    track('user_signed_out')
     clearAuth()
+    reset()
     navigate('/login')
   }
 

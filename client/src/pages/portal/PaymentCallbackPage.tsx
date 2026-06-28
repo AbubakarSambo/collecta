@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import { CheckCircle, XCircle, Trophy, Star, Mail, AlertCircle, CheckCircle2, CalendarPlus } from 'lucide-react'
 import { Spinner } from '@/components/ui/Spinner'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
@@ -86,6 +87,7 @@ export function PaymentCallbackPage() {
   const reference = searchParams.get('reference') || searchParams.get('trxref')
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [result, setResult] = useState<PaymentResult | null>(null)
+  const { track } = useAnalytics()
 
   useEffect(() => {
     if (!reference) {
@@ -100,11 +102,23 @@ export function PaymentCallbackPage() {
         if (data?.status === 'success' || data?.alreadyRecorded) {
           setStatus('success')
           setResult(data)
+          track('payment_confirmed', {
+            reference,
+            amount: data.amount,
+            feeName: data.feeName,
+            networkSlug: data.networkSlug,
+            alreadyRecorded: !!data.alreadyRecorded,
+            outstandingCount: data.outstandingCharges?.length ?? 0,
+          })
         } else {
           setStatus('error')
+          track('payment_verification_failed', { reference, reason: 'status_not_success' })
         }
       })
-      .catch(() => setStatus('error'))
+      .catch(() => {
+        setStatus('error')
+        track('payment_verification_failed', { reference, reason: 'network_error' })
+      })
   }, [reference])
 
   return (
@@ -206,7 +220,7 @@ export function PaymentCallbackPage() {
 
               {result?.outstandingCharges && result.outstandingCharges.length > 0 && (
                 <button
-                  onClick={() => addToCalendar(result.outstandingCharges![0], result.networkName)}
+                  onClick={() => { track('calendar_reminder_downloaded', { networkSlug: result.networkSlug }); addToCalendar(result.outstandingCharges![0], result.networkName) }}
                   className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900"
                 >
                   <CalendarPlus className="h-4 w-4" />

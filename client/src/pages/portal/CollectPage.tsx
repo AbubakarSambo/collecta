@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import { ArrowLeft, Building2, PiggyBank, Truck, Landmark } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -18,6 +19,8 @@ const COLLECT_TYPES = [
 
 export function CollectPage() {
   const { slug } = useParams<{ slug: string }>()
+  const { track } = useAnalytics()
+  const calculatorTracked = useRef(false)
   const [members, setMembers] = useState('')
   const [hours, setHours] = useState('')
   const [type, setType] = useState('ESTATE')
@@ -27,6 +30,13 @@ export function CollectPage() {
   const hasResult = !isNaN(m) && !isNaN(h) && m > 0 && h > 0
   const monthly = hasResult ? Math.round(h * HOURLY_OPPORTUNITY_COST) : 0
   const yearly = monthly * 12
+
+  useEffect(() => {
+    if (hasResult && !calculatorTracked.current) {
+      calculatorTracked.current = true
+      track('collector_calculator_used', { members: m, hours: h, networkSlug: slug })
+    }
+  }, [hasResult])
 
   const registerHref = `/register?ref=${encodeURIComponent(slug ?? '')}&type=${type}`
 
@@ -106,7 +116,7 @@ export function CollectPage() {
 
       {/* CTA */}
       <div className="space-y-3">
-        <Link to={registerHref}>
+        <Link to={registerHref} onClick={() => track('collector_signup_clicked', { networkSlug: slug, networkType: type })}>
           <Button className="w-full" size="lg">Create my free account →</Button>
         </Link>
         <p className="text-center text-xs text-gray-500">

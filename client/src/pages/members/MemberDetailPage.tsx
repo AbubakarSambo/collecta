@@ -6,6 +6,7 @@ import { ArrowLeft, Send, Link, Pencil, X, Check } from 'lucide-react'
 import { membersApi } from '@/api/members'
 import { remindersApi } from '@/api/reminders'
 import { useNetwork } from '@/hooks/useNetwork'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
@@ -19,6 +20,7 @@ export function MemberDetailPage() {
   const navigate = useNavigate()
   const { networkId } = useNetwork()
   const queryClient = useQueryClient()
+  const { track } = useAnalytics()
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({ phone: '', email: '', unit: '', memberCode: '', firstName: '', lastName: '', notes: '' })
 
@@ -32,6 +34,7 @@ export function MemberDetailPage() {
   const updateMutation = useMutation({
     mutationFn: (payload: typeof form) => membersApi.update(networkId!, id!, payload),
     onSuccess: () => {
+      track('member_updated', { memberId: id })
       queryClient.invalidateQueries({ queryKey: ['member', networkId, id] })
       toast.success('Member updated')
       setEditing(false)
@@ -42,7 +45,10 @@ export function MemberDetailPage() {
   const reminderMutation = useMutation({
     mutationFn: () =>
       remindersApi.sendToMember(networkId!, id!, { channels: ['EMAIL'] }),
-    onSuccess: () => toast.success('Reminder sent'),
+    onSuccess: () => {
+      track('reminder_sent_to_member', { memberId: id, channel: 'EMAIL' })
+      toast.success('Reminder sent')
+    },
     onError: () => toast.error('Failed to send reminder'),
   })
 
@@ -50,6 +56,7 @@ export function MemberDetailPage() {
     mutationFn: () => membersApi.getInviteLink(networkId!, id!),
     onSuccess: (res) => {
       navigator.clipboard.writeText(res.data.inviteUrl)
+      track('member_invite_link_copied', { memberId: id })
       toast.success('Invite link copied to clipboard')
     },
   })

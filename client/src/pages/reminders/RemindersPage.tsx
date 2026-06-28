@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { remindersApi } from '@/api/reminders'
 import { useNetwork } from '@/hooks/useNetwork'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
@@ -55,6 +56,7 @@ function getToneLabel(daysOffset: number): { label: string; color: string } {
 
 function RuleSchedule({ networkId }: { networkId: string }) {
   const queryClient = useQueryClient()
+  const { track } = useAnalytics()
   const [newDaysOffset, setNewDaysOffset] = useState<number>(0)
   const [newChannels, setNewChannels] = useState<string[]>(['EMAIL'])
   const [showCustom, setShowCustom] = useState(false)
@@ -69,7 +71,8 @@ function RuleSchedule({ networkId }: { networkId: string }) {
   const createMutation = useMutation({
     mutationFn: (data: { daysOffset: number; channels: string[] }) =>
       remindersApi.createRule(networkId, data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      track('reminder_rule_created', { daysOffset: variables.daysOffset, channels: variables.channels })
       toast.success('Reminder rule added')
       queryClient.invalidateQueries({ queryKey: ['reminder-rules', networkId] })
     },
@@ -79,7 +82,8 @@ function RuleSchedule({ networkId }: { networkId: string }) {
 
   const deleteMutation = useMutation({
     mutationFn: (ruleId: string) => remindersApi.deleteRule(networkId, ruleId),
-    onSuccess: () => {
+    onSuccess: (_, ruleId) => {
+      track('reminder_rule_deleted', { ruleId })
       toast.success('Rule removed')
       queryClient.invalidateQueries({ queryKey: ['reminder-rules', networkId] })
     },
@@ -274,6 +278,7 @@ function RuleSchedule({ networkId }: { networkId: string }) {
 
 export function RemindersPage() {
   const { networkId } = useNetwork()
+  const { track } = useAnalytics()
   const [selectedChannels, setSelectedChannels] = useState<string[]>(['EMAIL'])
   const [message, setMessage] = useState('')
   const queryClient = useQueryClient()
@@ -300,6 +305,7 @@ export function RemindersPage() {
       if (res?.reason) {
         toast.warning(res.reason)
       } else {
+        track('reminder_blast_sent', { channels: selectedChannels, sent: res?.sent ?? 0, failed: res?.failed ?? 0, hasCustomMessage: !!message })
         toast.success(
           `Sent ${res?.sent ?? 0} reminders${res?.failed > 0 ? `, ${res.failed} failed` : ''}`,
         )

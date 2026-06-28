@@ -4,6 +4,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ExternalLink, ArrowLeft, ShieldCheck, CreditCard, Building2, Hash, Smartphone } from 'lucide-react'
 import { portalApi } from '@/api/portal'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -23,6 +24,8 @@ type PaymentMethod = 'card' | 'bank_transfer' | 'ussd' | 'mobile_money'
 export function PaymentPage() {
   const { slug, chargeId } = useParams<{ slug: string; chargeId: string }>()
   const navigate = useNavigate()
+
+  const { track } = useAnalytics()
 
   const { data, isLoading } = useQuery({
     queryKey: ['portal', slug, 'charge', chargeId],
@@ -49,7 +52,17 @@ export function PaymentPage() {
     },
     onSuccess: (res) => {
       const url = res?.data?.paymentUrl ?? res?.paymentUrl
-      if (url) window.location.href = url
+      if (url) {
+        track('payment_initiated', {
+          networkSlug: slug,
+          chargeId,
+          amount: parseFloat(amountInput),
+          paymentMethod,
+          isPartial: parseFloat(amountInput) < (data?.remainingAmount ?? 0),
+          isLarge: parseFloat(amountInput) >= LARGE_PAYMENT_THRESHOLD,
+        })
+        window.location.href = url
+      }
     },
     onError: (err: any) => {
       const msg = err?.response?.data?.message
@@ -70,6 +83,7 @@ export function PaymentPage() {
     setAmountError('')
 
     if (amount >= LARGE_PAYMENT_THRESHOLD && !confirmed) {
+      track('large_payment_review_shown', { amount, networkSlug: slug, chargeId })
       setConfirmed(true)
       return
     }

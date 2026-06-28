@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { memberAuthApi } from '@/api/memberAuth'
 import { saveMemberSession, getMemberSession } from '@/hooks/useMemberSession'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -12,6 +13,7 @@ export function MemberLoginPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
 
+  const { track } = useAnalytics()
   const [step, setStep] = useState<'email' | 'otp'>('email')
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
@@ -20,6 +22,7 @@ export function MemberLoginPage() {
   const requestMutation = useMutation({
     mutationFn: () => memberAuthApi.requestOtp(slug!, email.trim()),
     onSuccess: () => {
+      track('member_otp_requested', { networkSlug: slug })
       setError('')
       setStep('otp')
     },
@@ -33,6 +36,7 @@ export function MemberLoginPage() {
     onSuccess: (res) => {
       const member = res?.data?.member ?? res?.member
       if (member) {
+        track('member_portal_signed_in', { networkSlug: slug })
         saveMemberSession(member)
         navigate(`/pay/${slug}/profile/${member.id}`)
       } else {

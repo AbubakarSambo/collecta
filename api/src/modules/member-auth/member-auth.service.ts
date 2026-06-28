@@ -1,10 +1,12 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { createHash, randomInt } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class MemberAuthService {
+  private readonly logger = new Logger(MemberAuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
@@ -39,7 +41,7 @@ export class MemberAuthService {
 
     this.emailService
       .sendMemberOtpEmail(member.email, member.firstName, otp, network.name)
-      .catch(() => {});
+      .catch((err) => this.logger.error(`OTP email failed for ${member.email}: ${err?.message}`));
 
     return { ok: true };
   }

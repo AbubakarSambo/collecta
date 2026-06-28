@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Plus, PlusCircle, Trash2 } from 'lucide-react'
 import { feesApi } from '@/api/fees'
 import { useNetwork } from '@/hooks/useNetwork'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -24,6 +25,7 @@ export function FeesPage() {
   const navigate = useNavigate()
   const { networkId } = useNetwork()
   const queryClient = useQueryClient()
+  const { track } = useAnalytics()
   const [createOpen, setCreateOpen] = useState(false)
 
   const { data, isLoading } = useQuery({
@@ -64,7 +66,8 @@ export function FeesPage() {
       startDate: data.startDate || undefined,
       options: feeOptions.length > 0 ? feeOptions : undefined,
     }),
-    onSuccess: () => {
+    onSuccess: (_, data) => {
+      track('fee_created', { type: data.type, frequency: data.frequency, amount: data.amount, penaltyEnabled: !!data.penaltyEnabled })
       toast.success('Fee created')
       queryClient.invalidateQueries({ queryKey: ['fees', networkId] })
       setCreateOpen(false)
@@ -77,7 +80,10 @@ export function FeesPage() {
   const toggleMutation = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       feesApi.update(networkId!, id, { isActive }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['fees', networkId] }),
+    onSuccess: (_, variables) => {
+      track('fee_toggled', { feeId: variables.id, isActive: variables.isActive })
+      queryClient.invalidateQueries({ queryKey: ['fees', networkId] })
+    },
   })
 
   if (isLoading) return <FullPageSpinner />

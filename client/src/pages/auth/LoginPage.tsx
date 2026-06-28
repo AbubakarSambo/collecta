@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { authApi } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth.store'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
@@ -20,6 +21,7 @@ type FormData = z.infer<typeof schema>
 export function LoginPage() {
   const navigate = useNavigate()
   const { setAuth } = useAuthStore()
+  const { track, identify } = useAnalytics()
 
   const {
     register,
@@ -31,8 +33,14 @@ export function LoginPage() {
     try {
       const res = await authApi.login(data)
       setAuth(res.data.user, res.data.accessToken)
+      identify(String(res.data.user.id), {
+        email: res.data.user.email,
+        name: `${res.data.user.firstName} ${res.data.user.lastName}`,
+      })
+      track('user_signed_in')
       navigate('/dashboard')
     } catch (err: any) {
+      track('user_sign_in_failed')
       toast.error(err?.response?.data?.message || 'Login failed')
     }
   }

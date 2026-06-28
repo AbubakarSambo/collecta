@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { portalApi } from '@/api/portal'
 import { getMemberSession } from '@/hooks/useMemberSession'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -20,6 +21,7 @@ interface PayerForm {
 }
 
 function OpenFeeCard({ fee, slug }: { fee: any; slug: string }) {
+  const { track } = useAnalytics()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<PayerForm>({
     firstName: '',
@@ -40,6 +42,7 @@ function OpenFeeCard({ fee, slug }: { fee: any; slug: string }) {
     onSuccess: (res) => {
       const url = res?.data?.paymentUrl ?? res?.paymentUrl
       if (url) {
+        track('open_fee_payment_initiated', { feeId: fee.id, feeName: fee.name, amount: parseFloat(form.amount), networkSlug: slug })
         window.location.href = url
       } else {
         setError('Could not retrieve payment URL. Please try again.')
@@ -163,6 +166,7 @@ function OpenFeeCard({ fee, slug }: { fee: any; slug: string }) {
 export function MemberPortalPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
+  const { track } = useAnalytics()
   const [emailInput, setEmailInput] = useState('')
   const [lookupError, setLookupError] = useState('')
 
@@ -180,12 +184,14 @@ export function MemberPortalPage() {
     onSuccess: (res) => {
       const memberId = res?.data?.member?.id ?? res?.member?.id
       if (memberId) {
+        track('member_email_lookup_success', { networkSlug: slug })
         navigate(`/pay/${slug}/profile/${memberId}`)
       } else {
         setLookupError('Could not find your account. Please try again.')
       }
     },
     onError: () => {
+      track('member_email_lookup_failed', { networkSlug: slug })
       setLookupError('No account found for that email address.')
     },
   })

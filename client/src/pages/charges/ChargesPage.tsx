@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { chargesApi } from '@/api/charges'
 import { paymentsApi } from '@/api/payments'
 import { useNetwork } from '@/hooks/useNetwork'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { DataTable, Column } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/Button'
@@ -19,6 +20,7 @@ import type { Charge } from '@/types'
 export function ChargesPage() {
   const { networkId } = useNetwork()
   const queryClient = useQueryClient()
+  const { track } = useAnalytics()
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState('')
   const [payOpen, setPayOpen] = useState<Charge | null>(null)
@@ -34,7 +36,8 @@ export function ChargesPage() {
 
   const waiveMutation = useMutation({
     mutationFn: (id: string) => chargesApi.waive(networkId!, id),
-    onSuccess: () => {
+    onSuccess: (_, chargeId) => {
+      track('charge_waived', { chargeId })
       toast.success('Charge waived')
       queryClient.invalidateQueries({ queryKey: ['charges', networkId] })
     },
@@ -48,7 +51,8 @@ export function ChargesPage() {
         amount: Number(payAmount),
         method: payMethod,
       }),
-    onSuccess: () => {
+    onSuccess: (_, charge) => {
+      track('charge_payment_recorded', { chargeId: charge.id, amount: Number(payAmount), method: payMethod })
       toast.success('Payment recorded')
       queryClient.invalidateQueries({ queryKey: ['charges', networkId] })
       queryClient.invalidateQueries({ queryKey: ['payments', networkId] })

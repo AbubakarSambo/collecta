@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { CheckCircle2, AlertCircle, Building2, MessageSquare, ShieldCheck, Clock, XCircle } from 'lucide-react'
 import { networksApi, paystackApi } from '@/api/networks'
 import { useNetwork } from '@/hooks/useNetwork'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -44,6 +45,7 @@ type SetupFormData = z.infer<typeof setupSchema>
 export function SettingsPage() {
   const { network, isLoading: networkLoading } = useNetwork()
   const queryClient = useQueryClient()
+  const { track } = useAnalytics()
   const [searchParams] = useSearchParams()
   const initialTab = TABS.some((t) => t.id === searchParams.get('tab'))
     ? searchParams.get('tab')!
@@ -76,6 +78,7 @@ export function SettingsPage() {
   const updateMutation = useMutation({
     mutationFn: (data: any) => networksApi.updateNetwork(data),
     onSuccess: () => {
+      track('network_settings_saved')
       toast.success('Settings saved')
       queryClient.invalidateQueries({ queryKey: ['network', 'me'] })
     },
@@ -97,6 +100,7 @@ export function SettingsPage() {
   const verifyMutation = useMutation({
     mutationFn: () => paystackApi.verifyAccount({ accountNumber, bankCode }),
     onSuccess: (data) => {
+      track('bank_account_verified')
       setVerifiedName(data.account_name)
       toast.success(`Account verified: ${data.account_name}`)
     },
@@ -109,6 +113,7 @@ export function SettingsPage() {
   const setupMutation = useMutation({
     mutationFn: (data: SetupFormData) => networksApi.setupPaystack(data),
     onSuccess: () => {
+      track('bank_account_connected')
       queryClient.invalidateQueries({ queryKey: ['paystack-status'] })
       queryClient.invalidateQueries({ queryKey: ['network', 'me'] })
       toast.success('Paystack connected — payments will go directly to your bank account')
@@ -125,7 +130,8 @@ export function SettingsPage() {
 
   const topUpMutation = useMutation({
     mutationFn: (bundle: number) => networksApi.topUpSmsCredits(bundle),
-    onSuccess: () => {
+    onSuccess: (_, credits) => {
+      track('sms_credits_purchased', { credits })
       toast.success('SMS credits purchased successfully')
       queryClient.invalidateQueries({ queryKey: ['sms-credits'] })
     },
@@ -151,7 +157,8 @@ export function SettingsPage() {
 
   const verificationMutation = useMutation({
     mutationFn: (data: any) => networksApi.submitVerification(data),
-    onSuccess: () => {
+    onSuccess: (_, data) => {
+      track('verification_submitted', { hasCac: !!data.cacNumber, hasNin: !!data.nin })
       toast.success('Verification request submitted — our team will review within 24 hours')
       queryClient.invalidateQueries({ queryKey: ['network', 'me'] })
     },

@@ -6,6 +6,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { CheckCircle, Info } from 'lucide-react'
 import { authApi } from '@/api/auth'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
@@ -49,6 +50,7 @@ const PENDING_VERIFICATION_KEY = 'collecta-pending-verification'
 export function RegisterPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { track } = useAnalytics()
   const referralSource = searchParams.get('ref') || undefined
   const referredType = searchParams.get('type') || undefined
   const [step, setStep] = useState(1)
@@ -63,6 +65,7 @@ export function RegisterPage() {
 
   const handleStep1 = (data: Step1Data) => {
     setStep1Data(data)
+    track('signup_step_1_completed')
     setStep(2)
   }
 
@@ -82,6 +85,7 @@ export function RegisterPage() {
         ...data,
         ...(referralSource ? { referralSource } : {}),
       })
+      track('signup_step_2_completed', { networkType: data.networkType, referralSource })
       setStep(3)
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Registration failed')
@@ -90,11 +94,13 @@ export function RegisterPage() {
 
   const handleStep3 = (data: Step3Data) => {
     localStorage.setItem(PENDING_VERIFICATION_KEY, JSON.stringify(data))
+    track('signup_verification_submitted', { hasCac: !!data.cacNumber, hasNin: !!data.nin })
     toast.success('Account created! Check your email to verify your account.')
     navigate('/verify-email')
   }
 
   const handleSkipVerification = () => {
+    track('signup_verification_skipped')
     toast.success('Account created! Check your email to verify your account.')
     navigate('/verify-email')
   }

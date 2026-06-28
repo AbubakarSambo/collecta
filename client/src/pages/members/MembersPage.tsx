@@ -6,6 +6,7 @@ import { UserPlus, Upload, Link, Search, CheckCircle, AlertCircle, Loader2, Bell
 import { membersApi } from '@/api/members'
 import { useNetwork } from '@/hooks/useNetwork'
 import { useDebounce } from '@/hooks/useDebounce'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { DataTable, Column } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/Button'
@@ -35,6 +36,7 @@ export function MembersPage() {
   const navigate = useNavigate()
   const { networkId } = useNetwork()
   const queryClient = useQueryClient()
+  const { track } = useAnalytics()
 
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -55,7 +57,8 @@ export function MembersPage() {
 
   const createMutation = useMutation({
     mutationFn: (data: MemberForm) => membersApi.create(networkId!, data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      track('member_created', { hasEmail: !!variables.email, hasPhone: !!variables.phone, hasUnit: !!variables.unit })
       toast.success('Member added')
       queryClient.invalidateQueries({ queryKey: ['members', networkId] })
       setAddOpen(false)
@@ -76,6 +79,7 @@ export function MembersPage() {
   useEffect(() => {
     if (!importJob) return
     if (importJob.status === 'DONE') {
+      track('member_csv_import_completed', { created: importJob.createdCount, skipped: importJob.skippedCount })
       toast.success(`Import complete: ${importJob.createdCount} added, ${importJob.skippedCount} skipped`)
       queryClient.invalidateQueries({ queryKey: ['members', networkId] })
       setImportJobId(null)
@@ -89,6 +93,7 @@ export function MembersPage() {
   const importMutation = useMutation({
     mutationFn: () => membersApi.importCsv(networkId!, csvData),
     onSuccess: (res: any) => {
+      track('member_csv_import_started')
       setImportJobId(res.jobId ?? res.data?.jobId)
     },
     onError: (err: any) => toast.error(err?.response?.data?.message || 'Import failed'),

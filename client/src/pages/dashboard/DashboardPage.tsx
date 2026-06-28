@@ -6,6 +6,7 @@ import { chargesApi } from '@/api/charges'
 import { paymentsApi } from '@/api/payments'
 import { reportsApi } from '@/api/reports'
 import { useNetwork } from '@/hooks/useNetwork'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import { StatsCard } from '@/components/shared/StatsCard'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -29,6 +30,7 @@ const ONBOARDING_DISMISSED_KEY = 'collecta-onboarding-dismissed'
 export function DashboardPage() {
   const navigate = useNavigate()
   const { network, networkId, isLoading: networkLoading } = useNetwork()
+  const { track } = useAnalytics()
   const [onboardingDismissed, setOnboardingDismissed] = useState(
     () => !!localStorage.getItem(ONBOARDING_DISMISSED_KEY),
   )
@@ -39,12 +41,19 @@ export function DashboardPage() {
   const dismissOnboarding = () => {
     localStorage.setItem(ONBOARDING_DISMISSED_KEY, '1')
     setOnboardingDismissed(true)
+    track('onboarding_banner_dismissed')
   }
 
   const copyText = (text: string, key: string) => {
     navigator.clipboard.writeText(text)
     setCopied(key)
     setTimeout(() => setCopied(null), 2000)
+    const eventMap: Record<string, string> = {
+      link: 'portal_link_copied',
+      whatsapp: 'whatsapp_template_copied',
+      sms: 'sms_template_copied',
+    }
+    if (eventMap[key]) track(eventMap[key])
   }
 
   const portalLink = `${window.location.origin}/pay/${network?.slug}`
@@ -391,7 +400,7 @@ export function DashboardPage() {
                 ].map(({ label, months }) => (
                   <button
                     key={months}
-                    onClick={() => setChartMonths(months)}
+                    onClick={() => { setChartMonths(months); track('collection_trend_timeframe_changed', { months }) }}
                     className={`rounded px-2.5 py-1 font-medium transition-colors ${
                       chartMonths === months
                         ? 'bg-white text-gray-900 shadow-sm'
