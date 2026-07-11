@@ -233,8 +233,16 @@ export class ChargesService {
     if (!assignment || !assignment.isActive || !assignment.fee.isActive) return null;
 
     const fee = assignment.fee;
-    const period = this.getPeriodBounds(fee.frequency, fee.dueDay, now);
+    let period = this.getPeriodBounds(fee.frequency, fee.dueDay, now);
     if (!period) return null;
+
+    // Don't backdate a member's first charge to a due date before their assignment
+    // even existed — roll forward to the next occurring period instead.
+    if (fee.frequency !== 'ONE_TIME' && period.dueDate < assignment.startDate) {
+      const nextPeriodStart = new Date(period.periodEnd.getTime() + 1000);
+      period = this.getPeriodBounds(fee.frequency, fee.dueDay, nextPeriodStart);
+      if (!period) return null;
+    }
 
     const existing = await this.prisma.charge.findFirst({
       where: {
@@ -297,13 +305,28 @@ export class ChargesService {
 
     const now = new Date();
 
-    const result = await this.prisma.charge.updateMany({
+    const pendingCharges = await this.prisma.charge.findMany({
       where: {
         status: 'PENDING',
         dueDate: { lt: now },
       },
-      data: { status: 'OVERDUE' },
+      include: { fee: true },
     });
+
+    const overdueIds = pendingCharges
+      .filter((charge) => {
+        const graceEnd = new Date(charge.dueDate);
+        graceEnd.setDate(graceEnd.getDate() + (charge.fee?.penaltyGraceDays ?? 0));
+        return now > graceEnd;
+      })
+      .map((charge) => charge.id);
+
+    const result = overdueIds.length
+      ? await this.prisma.charge.updateMany({
+          where: { id: { in: overdueIds } },
+          data: { status: 'OVERDUE' },
+        })
+      : { count: 0 };
 
     this.logger.log(`Marked ${result.count} charges as OVERDUE`);
   }

@@ -88,7 +88,7 @@ export function SettingsPage() {
   const { data: paystackStatus, isLoading: statusLoading } = useQuery({
     queryKey: ['paystack-status'],
     queryFn: () => networksApi.getPaystackStatus(),
-    enabled: activeTab === 'paystack',
+    enabled: activeTab === 'paystack' || activeTab === 'verification',
   })
 
   const { data: banks, isLoading: banksLoading } = useQuery({
@@ -415,6 +415,20 @@ export function SettingsPage() {
                 <div>
                   <p className="font-semibold text-green-900">Verified</p>
                   <p className="text-sm text-green-700">Your organisation has been verified by Collecta. Your portal is live.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {network?.verificationStatus === 'APPROVED' && !paystackStatus?.isSetup && (
+            <Card className="border-green-200 bg-green-50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <ShieldCheck className="h-6 w-6 text-green-600 shrink-0" />
+                <div>
+                  <p className="font-semibold text-green-900">Verified</p>
+                  <p className="text-sm text-green-700">
+                    Your organisation has been verified by Collecta. Connect your bank account in the Paystack tab to activate your portal.
+                  </p>
                 </div>
               </CardContent>
             </Card>

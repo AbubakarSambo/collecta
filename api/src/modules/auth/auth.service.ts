@@ -78,6 +78,16 @@ export class AuthService {
         },
       });
 
+      // Seed a sensible default reminder schedule so a new network isn't
+      // silently sending zero reminders until the admin discovers the tab.
+      await tx.reminderRule.createMany({
+        data: [
+          { networkId: network.id, daysOffset: -3, channels: ['EMAIL'] },
+          { networkId: network.id, daysOffset: 0, channels: ['EMAIL', 'SMS'] },
+          { networkId: network.id, daysOffset: 5, channels: ['EMAIL', 'SMS'] },
+        ],
+      });
+
       return { user, network, token };
     });
 

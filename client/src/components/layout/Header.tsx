@@ -34,7 +34,7 @@ export function Header({ onMenuClick }: HeaderProps) {
       <div className="flex items-center gap-3">
         {user?.networkSlug && (
           <a
-            href={`/n/${user.networkSlug}`}
+            href={`/pay/${user.networkSlug}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-brand-700"
