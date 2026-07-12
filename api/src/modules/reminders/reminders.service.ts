@@ -8,6 +8,7 @@ import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { BlastReminderDto } from './dto/blast-reminder.dto';
 
 const BATCH_SIZE = 500;
@@ -19,6 +20,7 @@ export class RemindersService {
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
+    private whatsappService: WhatsappService,
     private configService: ConfigService,
   ) {}
 
@@ -301,6 +303,8 @@ export class RemindersService {
         if (channel === 'SMS' && member.smsOptedOut) continue;
         if (channel === 'SMS' && !member.phone) continue;
         if (channel === 'EMAIL' && !member.email) continue;
+        if (channel === 'WHATSAPP' && !member.phone) continue;
+        if (channel === 'WHATSAPP' && !member.whatsappOptedIn) continue;
 
         // Dedup: only send once per assignment+day+channel
         const existing = await this.prisma.reminderLog.findUnique({
@@ -325,6 +329,8 @@ export class RemindersService {
         }
 
         try {
+          let providerMessageId: string | undefined;
+
           if (channel === 'EMAIL' && member.email) {
             await this.emailService.sendFeeReminderEmail(
               member.email,
@@ -356,7 +362,7 @@ export class RemindersService {
             currentNetwork = await this.prisma.network.findUnique({
               where: { id: network.id },
             });
-          } else if (channel === 'WHATSAPP' && member.phone) {
+          } else if (channel === 'WHATSAPP' && member.phone && member.whatsappOptedIn) {
             const variables = this.buildWhatsAppVariables(
               tone,
               member,
@@ -365,7 +371,7 @@ export class RemindersService {
               daysFromDue,
               payLink,
             );
-            await this.sendWhatsApp(member.phone, tone, variables);
+            providerMessageId = await this.dispatchWhatsApp(member.phone, tone, variables);
           } else {
             continue;
           }
@@ -379,6 +385,7 @@ export class RemindersService {
               channel: channel as any,
               tone: tone as any,
               sentDate: todayStr,
+              providerMessageId,
             },
           });
         } catch (err) {
@@ -514,8 +521,9 @@ export class RemindersService {
       if (!charge.member) continue;
       for (const channel of dto.channels) {
         if (channel === 'SMS' && (charge.member as any).smsOptedOut) continue;
+        if (channel === 'WHATSAPP' && !(charge.member as any).whatsappOptedIn) continue;
         try {
-          await this.sendReminder(channel, charge, network, dto.message);
+          const providerMessageId = await this.sendReminder(channel, charge, network, dto.message);
           await this.prisma.reminder.create({
             data: {
               networkId,
@@ -525,6 +533,7 @@ export class RemindersService {
               status: 'SENT',
               message: dto.message,
               sentAt: new Date(),
+              providerMessageId,
             },
           });
           sent++;
@@ -584,9 +593,10 @@ export class RemindersService {
     let sent = 0;
     for (const charge of charges) {
       for (const channel of dto.channels) {
+        if (channel === 'WHATSAPP' && !member.whatsappOptedIn) continue;
         try {
           this.logger.log(`sendToMember: sending ${channel} for charge ${charge.id}`);
-          await this.sendReminder(channel, { ...charge, member }, network, dto.message);
+          const providerMessageId = await this.sendReminder(channel, { ...charge, member }, network, dto.message);
           await this.prisma.reminder.create({
             data: {
               networkId,
@@ -596,6 +606,7 @@ export class RemindersService {
               status: 'SENT',
               message: dto.message,
               sentAt: new Date(),
+              providerMessageId,
             },
           });
           sent++;
@@ -628,7 +639,7 @@ export class RemindersService {
     charge: any,
     network: any,
     customMessage?: string,
-  ) {
+  ): Promise<string | undefined> {
     const member = charge.member;
     const feeName = charge.fee?.name || charge.description || 'Payment Due';
     const paymentUrl = `${this.frontendUrl}/pay/${network.slug}/pay/${charge.id}`;
@@ -650,8 +661,8 @@ export class RemindersService {
         customMessage ||
           `Hi ${member.firstName}, your payment of NGN ${Number(charge.amount).toLocaleString()} for ${feeName} is due. Pay now: ${paymentUrl}`,
       );
-    } else if (channel === 'WHATSAPP' && member.phone) {
-      await this.sendWhatsApp(member.phone, 'GENERIC', {
+    } else if (channel === 'WHATSAPP' && member.phone && member.whatsappOptedIn) {
+      return this.dispatchWhatsApp(member.phone, 'GENERIC', {
         '1': member.firstName,
         '2': feeName,
         '3': `NGN ${Number(charge.amount).toLocaleString('en-NG')}`,
@@ -659,6 +670,8 @@ export class RemindersService {
         '5': paymentUrl,
       });
     }
+
+    return undefined;
   }
 
   private async sendSms(phone: string, message: string) {
@@ -728,6 +741,41 @@ export class RemindersService {
     }
 
     this.logger.log(`sendWhatsApp: sent to ${phone} tone=${tone}`);
+  }
+
+  // Routes a WhatsApp send through Meta's Cloud API (if WHATSAPP_USE_META=true)
+  // or the legacy Termii relay — the single cutover point for the migration.
+  private async dispatchWhatsApp(
+    phone: string,
+    tone: string,
+    variables: Record<string, string>,
+  ): Promise<string | undefined> {
+    if (this.configService.get<boolean>('whatsapp.useMetaWhatsapp')) {
+      const templates = this.configService.get<Record<string, string>>('whatsapp.templates');
+      const templateName = templates?.[tone];
+      const languageCode = this.configService.get<string>('whatsapp.templateLanguage') || 'en_US';
+
+      if (!templateName) {
+        this.logger.warn(
+          `dispatchWhatsApp: skipping ${phone} — no Meta template configured for tone "${tone}"`,
+        );
+        return undefined;
+      }
+
+      // Termii's placeholders are keyed '1'..'5' — Object.values() on an object with
+      // numeric-string keys enumerates in ascending numeric order, giving the exact
+      // positional order Meta's template `components[0].parameters` array expects.
+      const result = await this.whatsappService.sendTemplate(
+        phone,
+        templateName,
+        languageCode,
+        Object.values(variables),
+      );
+      return result?.providerMessageId;
+    }
+
+    await this.sendWhatsApp(phone, tone, variables);
+    return undefined;
   }
 
   private buildWhatsAppVariables(

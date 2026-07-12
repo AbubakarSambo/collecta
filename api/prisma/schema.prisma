@@ -108,6 +108,9 @@ model Member {
   consecutiveMonthsPaid Int             @default(0)
   smsOptedOut           Boolean         @default(false)
   smsOptedOutAt         DateTime?
+  whatsappOptedIn       Boolean         @default(false)
+  whatsappOptedInAt     DateTime?
+  whatsappOptedOutAt    DateTime?
   inviteToken           String?         @unique
   otpHash               String?
   otpExpiresAt          DateTime?
@@ -213,35 +216,58 @@ model Payment {
 }
 
 model Reminder {
-  id        String          @id @default(uuid())
-  networkId String
-  memberId  String
-  chargeId  String?
-  channel   ReminderChannel
-  status    ReminderStatus  @default(PENDING)
-  message   String?
-  sentAt    DateTime?
-  createdAt DateTime        @default(now())
-  charge    Charge?         @relation(fields: [chargeId], references: [id])
-  member    Member          @relation(fields: [memberId], references: [id])
-  network   Network         @relation(fields: [networkId], references: [id])
+  id                String                  @id @default(uuid())
+  networkId         String
+  memberId          String
+  chargeId          String?
+  channel           ReminderChannel
+  status            ReminderStatus          @default(PENDING)
+  message           String?
+  sentAt            DateTime?
+  providerMessageId String?
+  whatsappStatus    WhatsappDeliveryStatus?
+  whatsappStatusAt  DateTime?
+  createdAt         DateTime                @default(now())
+  charge            Charge?                 @relation(fields: [chargeId], references: [id])
+  member            Member                  @relation(fields: [memberId], references: [id])
+  network           Network                 @relation(fields: [networkId], references: [id])
+
+  @@index([providerMessageId])
 }
 
 model ReminderLog {
-  id           String          @id @default(uuid())
-  networkId    String
-  memberId     String
-  assignmentId String?
-  chargeId     String?
-  channel      ReminderChannel
-  tone         ReminderTone
-  sentDate     String
-  createdAt    DateTime        @default(now())
-  network      Network         @relation(fields: [networkId], references: [id], onDelete: Cascade)
-  member       Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  assignment   FeeAssignment?  @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  id                String                  @id @default(uuid())
+  networkId         String
+  memberId          String
+  assignmentId      String?
+  chargeId          String?
+  channel           ReminderChannel
+  tone              ReminderTone
+  sentDate          String
+  providerMessageId String?
+  whatsappStatus    WhatsappDeliveryStatus?
+  whatsappStatusAt  DateTime?
+  createdAt         DateTime                @default(now())
+  network           Network                 @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  member            Member                  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  assignment        FeeAssignment?          @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
 
   @@unique([assignmentId, sentDate, channel])
+  @@index([providerMessageId])
+}
+
+model WhatsappStatusEvent {
+  id                String                 @id @default(uuid())
+  providerMessageId String
+  status            WhatsappDeliveryStatus
+  recipientPhone    String?
+  errorCode         Int?
+  errorTitle        String?
+  timestamp         DateTime
+  rawPayload        Json
+  createdAt         DateTime               @default(now())
+
+  @@unique([providerMessageId, status])
 }
 
 model ImportJob {
@@ -368,6 +394,13 @@ enum ReminderTone {
   CLEAR
   FIRM
   FORMAL
+}
+
+enum WhatsappDeliveryStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
 }
 
 enum ImportJobStatus {
