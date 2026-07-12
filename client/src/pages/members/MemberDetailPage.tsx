@@ -22,7 +22,7 @@ export function MemberDetailPage() {
   const queryClient = useQueryClient()
   const { track } = useAnalytics()
   const [editing, setEditing] = useState(false)
-  const [form, setForm] = useState({ phone: '', email: '', unit: '', memberCode: '', firstName: '', lastName: '', notes: '' })
+  const [form, setForm] = useState({ phone: '', email: '', unit: '', memberCode: '', firstName: '', lastName: '', notes: '', whatsappOptedIn: false })
 
   const { data, isLoading } = useQuery({
     queryKey: ['member', networkId, id],
@@ -74,6 +74,7 @@ export function MemberDetailPage() {
       firstName: member.firstName || '',
       lastName: member.lastName || '',
       notes: member.notes || '',
+      whatsappOptedIn: member.whatsappOptedIn || false,
     })
     setEditing(true)
   }
@@ -187,6 +188,15 @@ export function MemberDetailPage() {
                   placeholder="e.g. 12 Mango Street, Block C. Emergency contact: 08012345678"
                 />
               </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="rounded"
+                  checked={form.whatsappOptedIn}
+                  onChange={(e) => setForm({ ...form, whatsappOptedIn: e.target.checked })}
+                />
+                <span className="text-sm font-medium text-gray-700">Member has consented to WhatsApp reminders</span>
+              </label>
             </div>
           ) : (
             <dl className="grid grid-cols-2 gap-3 text-sm">
@@ -213,6 +223,10 @@ export function MemberDetailPage() {
               <div>
                 <dt className="text-gray-500">Joined</dt>
                 <dd className="font-medium">{formatDate(member.joinedAt)}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">WhatsApp Reminders</dt>
+                <dd className="font-medium">{member.whatsappOptedIn ? 'Opted in' : 'Not opted in'}</dd>
               </div>
               {member.notes && (
                 <div className="col-span-2">

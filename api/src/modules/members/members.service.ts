@@ -119,6 +119,8 @@ export class MembersService {
         phone: dto.phone,
         unit: dto.unit,
         memberCode: dto.memberCode,
+        whatsappOptedIn: dto.whatsappOptedIn ?? false,
+        whatsappOptedInAt: dto.whatsappOptedIn ? new Date() : undefined,
       },
     });
   }
@@ -132,12 +134,23 @@ export class MembersService {
       throw new NotFoundException('Member not found');
     }
 
+    const data: Record<string, unknown> = {
+      ...dto,
+      email: dto.email?.toLowerCase(),
+    };
+
+    // Track the opt-in/opt-out transition the same way the portal self-service endpoints do,
+    // so admin-set consent and member-set consent both leave an audit timestamp.
+    if (dto.whatsappOptedIn === true && !member.whatsappOptedIn) {
+      data.whatsappOptedInAt = new Date();
+      data.whatsappOptedOutAt = null;
+    } else if (dto.whatsappOptedIn === false && member.whatsappOptedIn) {
+      data.whatsappOptedOutAt = new Date();
+    }
+
     return this.prisma.member.update({
       where: { id },
-      data: {
-        ...dto,
-        email: dto.email?.toLowerCase(),
-      },
+      data,
     });
   }
 
@@ -250,6 +263,8 @@ export class MembersService {
           }
         }
 
+        const whatsappOptedIn = this.parseCsvBoolean(row['whatsappoptin']);
+
         await this.prisma.member.create({
           data: {
             networkId: job.networkId,
@@ -259,6 +274,8 @@ export class MembersService {
             phone: row['phone'] || null,
             unit: row['unit'] || null,
             memberCode: row['membercode'] || null,
+            whatsappOptedIn,
+            whatsappOptedInAt: whatsappOptedIn ? new Date() : null,
           },
         });
 
@@ -286,6 +303,11 @@ export class MembersService {
         rawData: null,
       },
     });
+  }
+
+  private parseCsvBoolean(value?: string): boolean {
+    if (!value) return false;
+    return ['yes', 'y', 'true', '1'].includes(value.trim().toLowerCase());
   }
 
   async generateInviteLink(id: string, networkId: string, appUrl: string) {
