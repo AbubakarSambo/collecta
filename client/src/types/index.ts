@@ -66,6 +66,7 @@ export interface Member {
   notes?: string
   status: MemberStatus
   smsOptedOut?: boolean
+  whatsappOptedIn?: boolean
   consecutiveMonthsPaid?: number
   inviteToken?: string
   joinedAt: string

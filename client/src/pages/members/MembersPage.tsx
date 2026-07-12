@@ -28,6 +28,7 @@ const memberSchema = z.object({
   phone: z.string().optional(),
   unit: z.string().optional(),
   memberCode: z.string().optional(),
+  whatsappOptedIn: z.boolean().optional(),
 })
 
 type MemberForm = z.infer<typeof memberSchema>
@@ -256,6 +257,10 @@ export function MembersPage() {
             <Label>Member Code (optional)</Label>
             <Input placeholder="MBR-001" {...register('memberCode')} />
           </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" className="rounded" {...register('whatsappOptedIn')} />
+            <span className="text-sm font-medium text-gray-700">Member has consented to WhatsApp reminders</span>
+          </label>
           <div className="flex gap-2 pt-2">
             <Button type="button" variant="outline" className="flex-1" onClick={() => setAddOpen(false)}>
               Cancel
@@ -313,13 +318,13 @@ export function MembersPage() {
           ) : (
             <>
               <p className="text-sm text-gray-600">
-                Paste CSV data below. Required columns: <code>firstName</code>, <code>lastName</code>. Optional: <code>email</code>, <code>phone</code>, <code>unit</code>, <code>memberCode</code>.
+                Paste CSV data below. Required columns: <code>firstName</code>, <code>lastName</code>. Optional: <code>email</code>, <code>phone</code>, <code>unit</code>, <code>memberCode</code>, <code>whatsappOptIn</code> (yes/no — only mark yes if the member actually consented).
               </p>
               <div className="rounded-md bg-gray-50 p-3">
                 <code className="text-xs text-gray-600">
-                  firstName,lastName,email,phone,unit,memberCode
+                  firstName,lastName,email,phone,unit,memberCode,whatsappOptIn
                   <br />
-                  Chidi,Eze,chidi@example.com,+234800000000,Unit 1A,MBR-001
+                  Chidi,Eze,chidi@example.com,+234800000000,Unit 1A,MBR-001,yes
                 </code>
               </div>
               <Textarea

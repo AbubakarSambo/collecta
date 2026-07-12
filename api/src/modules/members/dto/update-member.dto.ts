@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEmail, MaxLength, IsEnum } from 'class-validator';
+import { IsString, IsOptional, IsEmail, IsBoolean, MaxLength, IsEnum } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { MemberStatus } from '@prisma/client';
 
@@ -48,4 +48,12 @@ export class UpdateMemberDto {
   @IsString()
   @MaxLength(1000)
   notes?: string;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: 'Only set this to true if the member has actually consented to receive WhatsApp reminders.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  whatsappOptedIn?: boolean;
 }

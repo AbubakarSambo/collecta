@@ -14,6 +14,7 @@ export const membersApi = {
     phone?: string
     unit?: string
     memberCode?: string
+    whatsappOptedIn?: boolean
   }) => apiClient.post(`/networks/${networkId}/members`, data).then((r) => r.data),
 
   update: (networkId: string, id: string, data: object) =>

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEmail, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsEmail, IsBoolean, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateMemberDto {
@@ -40,4 +40,12 @@ export class CreateMemberDto {
   @IsString()
   @MaxLength(1000)
   notes?: string;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: 'Only set this to true if the member has actually consented to receive WhatsApp reminders.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  whatsappOptedIn?: boolean;
 }
