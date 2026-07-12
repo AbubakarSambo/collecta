@@ -5,12 +5,13 @@ import jwtConfig from './jwt.config';
 import paystackConfig from './paystack.config';
 import termiiConfig from './termii.config';
 import resendConfig from './resend.config';
+import whatsappConfig from './whatsapp.config';
 
 @Module({
   imports: [
     NestConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, jwtConfig, paystackConfig, termiiConfig, resendConfig],
+      load: [appConfig, jwtConfig, paystackConfig, termiiConfig, resendConfig, whatsappConfig],
     }),
   ],
 })

@@ -112,4 +112,22 @@ export class PortalController {
   ) {
     return this.portalService.smsOptOut(slug, memberId);
   }
+
+  @Post(':slug/member/:memberId/whatsapp-opt-in')
+  @ApiOperation({ summary: 'Opt a member into WhatsApp reminders (public, no auth required)' })
+  async whatsappOptIn(
+    @Param('slug') slug: string,
+    @Param('memberId') memberId: string,
+  ) {
+    return this.portalService.whatsappOptIn(slug, memberId);
+  }
+
+  @Post(':slug/member/:memberId/whatsapp-opt-out')
+  @ApiOperation({ summary: 'Opt a member out of WhatsApp reminders (public, no auth required)' })
+  async whatsappOptOut(
+    @Param('slug') slug: string,
+    @Param('memberId') memberId: string,
+  ) {
+    return this.portalService.whatsappOptOut(slug, memberId);
+  }
 }

@@ -827,4 +827,48 @@ export class PortalService {
 
     return { message: 'You have been unsubscribed from SMS reminders.' };
   }
+
+  async whatsappOptIn(slug: string, memberId: string) {
+    const network = await this.prisma.network.findUnique({
+      where: { slug: slug.toLowerCase() },
+      select: { id: true },
+    });
+
+    if (!network) throw new NotFoundException('Network not found');
+
+    const member = await this.prisma.member.findFirst({
+      where: { id: memberId, networkId: network.id },
+    });
+
+    if (!member) throw new NotFoundException('Member not found');
+
+    await this.prisma.member.update({
+      where: { id: memberId },
+      data: { whatsappOptedIn: true, whatsappOptedInAt: new Date(), whatsappOptedOutAt: null },
+    });
+
+    return { message: 'You have been subscribed to WhatsApp reminders.' };
+  }
+
+  async whatsappOptOut(slug: string, memberId: string) {
+    const network = await this.prisma.network.findUnique({
+      where: { slug: slug.toLowerCase() },
+      select: { id: true },
+    });
+
+    if (!network) throw new NotFoundException('Network not found');
+
+    const member = await this.prisma.member.findFirst({
+      where: { id: memberId, networkId: network.id },
+    });
+
+    if (!member) throw new NotFoundException('Member not found');
+
+    await this.prisma.member.update({
+      where: { id: memberId },
+      data: { whatsappOptedIn: false, whatsappOptedOutAt: new Date() },
+    });
+
+    return { message: 'You have been unsubscribed from WhatsApp reminders.' };
+  }
 }

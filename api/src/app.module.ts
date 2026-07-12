@@ -15,6 +15,7 @@ import { RemindersModule } from './modules/reminders';
 import { ReportsModule } from './modules/reports';
 import { AuditModule } from './modules/audit';
 import { EmailModule } from './modules/email';
+import { WhatsappModule } from './modules/whatsapp';
 import { PortalModule } from './modules/portal';
 import { MemberAuthModule } from './modules/member-auth/member-auth.module';
 import { JwtAuthGuard, RolesGuard, GlobalExceptionFilter, TransformInterceptor } from './common';
@@ -33,6 +34,7 @@ import { JwtAuthGuard, RolesGuard, GlobalExceptionFilter, TransformInterceptor }
     ChargesModule,
     PaymentsModule,
     PaystackModule,
+    WhatsappModule,
     RemindersModule,
     ReportsModule,
     AuditModule,
